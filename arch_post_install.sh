@@ -1,62 +1,122 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
+# =============================
+# Segurança básica
+# =============================
+if [[ $EUID -eq 0 ]]; then
+    echo "⚠️ Não execute este script como root. Use um usuário normal."
+    exit 1
+fi
+
+# =============================
+# Atualização inicial
+# =============================
+sudo pacman -Syu --noconfirm
+
+# =============================
+# Pacotes oficiais (pacman)
+# =============================
 sudo pacman -S --noconfirm --needed \
-        code tmux gimp bat zoxide htop ufw ripgrep fd btop obsidian \
-        lazygit lazydocker libreoffice-fresh wget curl git \
-        ttf-cascadia-code-nerd ttf-meslo-nerd inter-font ttf-jetbrains-mono \
-        alacritty qbittorrent neovim fish flatpak fzf unzip zip \
-        eza starship base-devel hyprpaper wofi wl-paste cliphist \
-        grim slurp hyprsunset hyprpaper yarn python-pip dbeaver docker \
-        docker-compose ddcutil lxappearance meson
+    code stow tmux gimp bat zoxide htop ufw ripgrep fd btop obsidian \
+    lazygit lazydocker libreoffice-fresh wget curl git \
+    ttf-cascadia-code-nerd ttf-meslo-nerd inter-font ttf-jetbrains-mono \
+    alacritty qbittorrent neovim fish flatpak fzf unzip zip \
+    eza starship base-devel rofi wl-paste cliphist \
+    grim slurp hyprsunset hyprpaper hyprshot yarn python-pip dbeaver docker \
+    docker-compose ddcutil lxappearance meson
 
-git clone https://aur.archlinux.org/yay.git
-cd yay
-makepkg -si
-cd ..
+# =============================
+# Instalar YAY (AUR helper)
+# =============================
+if ! command -v yay &>/dev/null; then
+    echo "📦 Instalando yay..."
+    git clone https://aur.archlinux.org/yay.git /tmp/yay
+    pushd /tmp/yay
+    makepkg -si --noconfirm
+    popd
+    rm -rf /tmp/yay
+else
+    echo "✔ yay já instalado."
+fi
 
-git clone https://github.com/tomas-barros1/dotfiles
-cd dotfiles
-mv fish ~/.config
-mv nvim ~/.config
-mv Zed ~/.config
-mv zellij ~/.config
-mv alacritty ~/.config
-mv hypr ~/.config
-cd ..
-sudo rm -r dotfiles
+# =============================
+# Dotfiles via stow
+# =============================
+if [[ ! -d "$HOME/dotfiles" ]]; then
+    git clone https://github.com/tomas-barros1/dotfiles ~/dotfiles
+fi
 
-git clone --depth=1 https://github.com/realmazharhussain/nautilus-code.git
-cd nautilus-code
+pushd ~/dotfiles
+stow alacritty fish hypr nvim zed rofi swaync waybar
+popd
+
+# =============================
+# Nautilus: "open with code"
+# =============================
+git clone --depth=1 https://github.com/realmazharhussain/nautilus-code.git /tmp/nautilus-code
+pushd /tmp/nautilus-code
 meson setup build
-meson install -C build
-cd ..
-sudo rm -r nautilus-code
+sudo meson install -C build
+popd
+rm -rf /tmp/nautilus-code
 
+# =============================
+# Mise (gerenciador de runtimes)
+# =============================
 curl https://mise.run | sh
-echo '~/.local/bin/mise activate fish | source' >> ~/.config/fish/config.fish
 
+mkdir -p ~/.config/fish
+if ! grep -q "mise activate fish" ~/.config/fish/config.fish; then
+    echo 'mise activate fish | source' >> ~/.config/fish/config.fish
+fi
+
+# Será aplicado após reiniciar o shell
 mise use -g ruby@latest
 mise use -g nodejs@latest
 
-yay -S --noconfirm --needed nautilus-open-any-terminal brave catppuccin-gtk-theme-git lazydocker lazygit vdu_controls
+# =============================
+# Instalar pacotes do AUR
+# =============================
+yay -S --noconfirm --needed \
+    nautilus-open-any-terminal \
+    brave-bin \
+    catppuccin-gtk-theme-git \
+    vdu_controls
 
-sudo systemctl start docker.service
-sudo systemctl enable docker.service
-sudo usermod -aG docker $USER
-newgrp docker
+# =============================
+# Docker
+# =============================
+sudo systemctl enable --now docker.service
+sudo usermod -aG docker "$USER"
 
+echo "🔄 Para aplicar o grupo docker, faça logout e login novamente."
+
+# =============================
+# Oh My Fish
+# =============================
 curl https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install | fish
 
 omf install zoxide rails fzf
 
-sudo ufw enable
+# =============================
+# Firewall
+# =============================
 sudo ufw allow https
 sudo ufw allow ssh
+sudo ufw --force enable
 
-gsettings set com.github.stunkymonkey.nautilus-open-any-terminal terminal alacritty
-gsettings set com.github.stunkymonkey.nautilus-open-any-terminal keybindings '<Ctrl><Alt>t'
+# =============================
+# gsettings (Nautilus Terminal)
+# =============================
+gsettings set com.github.stunkymonkey.nautilus-open-any-terminal terminal "alacritty"
+gsettings set com.github.stunkymonkey.nautilus-open-any-terminal keybindings "<Ctrl><Alt>t"
 gsettings set com.github.stunkymonkey.nautilus-open-any-terminal new-tab true
 gsettings set com.github.stunkymonkey.nautilus-open-any-terminal flatpak system
 
-chsh
+# =============================
+# Definir fish como shell padrão
+# =============================
+chsh -s /usr/bin/fish
+
+echo "🎉 Instalação concluída! Reinicie a sessão para aplicar tudo."
