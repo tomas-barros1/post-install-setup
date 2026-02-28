@@ -23,14 +23,19 @@ PACMAN_PACKAGES=(
     # Desenvolvimento
     "git"
     "neovim"
-    "base-devel"
     "python-pip"
     "docker"
     "docker-compose"
+    "pnpm"
     "yarn"
-    "meson"
     
+    # Tema de ícones
     "tela-circle-icon-theme-purple"
+
+    "fcitx5"
+    "fcitx5-configtool"
+    "fcitx5-gtk"
+    "fcitx5-qt"
 
     # Terminal & CLI Tools
     "fish"
@@ -62,7 +67,13 @@ PACMAN_PACKAGES=(
     "flatpak"
     "nemo"
     
+    #Hyprland e Wayland tools
     "wl-clipboard"
+    "hyprpaper"
+    "hyprshot"
+    "swaync"
+    "waybar"
+    "xdg-desktop-portal-gnome"
     
     # Utilitários
     "wget"
@@ -87,6 +98,7 @@ AUR_PACKAGES=(
     "elephant-desktopapplications-bin"
     "elephant-providerlist-bin"
     "elephant-runner-bin"
+    "polkit-gnome-git"
 )
 
 # Dotfiles para aplicar stow
@@ -252,6 +264,15 @@ setup_fish_shell() {
     chsh -s /usr/bin/fish || log_warn "Falha. Execute manualmente: chsh -s /usr/bin/fish"
 }
 
+setup_brave_wayland_flags() {
+    log_step "Configurando flags do Brave para Wayland..."
+
+    mkdir -p "$HOME/.config"
+    printf '%s\n' "--ozone-platform-hint=auto" "--enable-wayland-ime" > "$HOME/.config/brave-flags.conf"
+
+    log_info "Arquivo $HOME/.config/brave-flags.conf configurado"
+}
+
 # =============================
 # Execução principal
 # =============================
@@ -271,6 +292,7 @@ main() {
     setup_docker
     setup_firewall
     setup_fish_shell
+    setup_brave_wayland_flags
     
     echo ""
     log_info "========================================="
