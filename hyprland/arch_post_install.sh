@@ -21,7 +21,6 @@ log_step() { echo -e "${BLUE}➜${NC} $1"; }
 # Pacotes oficiais (pacman)
 PACMAN_PACKAGES=(
     # Desenvolvimento
-    "code"
     "git"
     "neovim"
     "base-devel"
@@ -31,17 +30,18 @@ PACMAN_PACKAGES=(
     "yarn"
     "meson"
     
+    "tela-circle-icon-theme-purple"
+
     # Terminal & CLI Tools
     "fish"
     "alacritty"
-    "tmux"
+    "zellij"
     "stow"
     "fzf"
     "bat"
     "eza"
     "ripgrep"
     "fd"
-    "htop"
     "btop"
     "zoxide"
     "starship"
@@ -53,22 +53,20 @@ PACMAN_PACKAGES=(
     "ttf-meslo-nerd"
     "ttf-jetbrains-mono"
     "inter-font"
+    "ttf-0xproto-nerd"
     
     # Aplicações
     "gimp"
     "libreoffice-fresh"
     "qbittorrent"
     "flatpak"
+    "nemo"
     
-    # Hyprland & Wayland
-    "rofi"
     "wl-clipboard"
-    "cliphist"
-    "grim"
-    "slurp"
     
     # Utilitários
     "wget"
+    "aria2"
     "curl"
     "unzip"
     "zip"
@@ -79,27 +77,30 @@ PACMAN_PACKAGES=(
 
 # Pacotes do AUR
 AUR_PACKAGES=(
-    "nautilus-open-any-terminal"
     "brave-bin"
-    "catppuccin-gtk-theme-mocha-lavender-dark"
-    "vdu_controls"
+    "catppuccin-gtk-theme-mocha"
     "obsidian"
-    "dbeaver"
-    "hyprpaper"
-    "hyprshot"
-    "hyprsunset"
-    "ashell"
+    "visual-studio-code-bin"
+    "walker-bin"
+    "elephant-bin"
+    "elephant-clipboard-bin"
+    "elephant-desktopapplications-bin"
+    "elephant-providerlist-bin"
+    "elephant-runner-bin"
 )
 
 # Dotfiles para aplicar stow
 DOTFILES_DIRS=(
     "alacritty"
     "fish"
-    "hypr"
     "nvim"
     "zed"
-    "rofi"
+    "zellij"
+    "hypr"
     "swaync"
+    "waybar"
+    "walker"
+    "astro-nvim"
 )
 
 # =============================
@@ -194,22 +195,6 @@ setup_dotfiles() {
     cd - >/dev/null
 }
 
-setup_nautilus_code() {
-    if [[ -d /usr/local/share/nautilus-python ]]; then
-        log_info "nautilus-code já instalado"
-        return 0
-    fi
-    
-    log_step "Instalando nautilus-code..."
-    local tmp_dir="/tmp/nautilus-code-$$"
-    
-    git clone --depth=1 https://github.com/realmazharhussain/nautilus-code.git "$tmp_dir"
-    (cd "$tmp_dir" && meson setup build && sudo meson install -C build)
-    rm -rf "$tmp_dir"
-    
-    log_info "nautilus-code instalado!"
-}
-
 setup_mise() {
     if command -v mise &>/dev/null; then
         log_info "mise já instalado"
@@ -257,19 +242,6 @@ setup_firewall() {
     log_info "UFW configurado e ativado!"
 }
 
-setup_nautilus_settings() {
-    if ! command -v gsettings &>/dev/null; then
-        return 0
-    fi
-    
-    log_step "Configurando Nautilus..."
-    
-    gsettings set com.github.stunkymonkey.nautilus-open-any-terminal terminal "alacritty" 2>/dev/null || true
-    gsettings set com.github.stunkymonkey.nautilus-open-any-terminal keybindings "<Ctrl><Alt>t" 2>/dev/null || true
-    gsettings set com.github.stunkymonkey.nautilus-open-any-terminal new-tab true 2>/dev/null || true
-    gsettings set com.github.stunkymonkey.nautilus-open-any-terminal flatpak system 2>/dev/null || true
-}
-
 setup_fish_shell() {
     if [[ "$SHELL" == "/usr/bin/fish" ]]; then
         log_info "Fish já é o shell padrão"
@@ -295,12 +267,9 @@ main() {
     install_yay
     install_aur_packages
     setup_dotfiles
-    setup_nautilus_code
     setup_mise
     setup_docker
-    setup_omf
     setup_firewall
-    setup_nautilus_settings
     setup_fish_shell
     
     echo ""
