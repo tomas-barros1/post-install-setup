@@ -22,6 +22,9 @@ log_step() { echo -e "${BLUE}➜${NC} $1"; }
 PACMAN_PACKAGES=(
     # Desenvolvimento
     "git"
+    "opencode"
+    "ollama"
+    "base-devel"
     "neovim"
     "python-pip"
     "docker"
@@ -41,6 +44,8 @@ PACMAN_PACKAGES=(
     "fish"
     "alacritty"
     "zellij"
+    "tmux"
+    "networkmanager"
     "stow"
     "fzf"
     "bat"
@@ -65,12 +70,16 @@ PACMAN_PACKAGES=(
     "libreoffice-fresh"
     "qbittorrent"
     "flatpak"
-    "nemo"
+    "nautilus"
+    "pavucontrol"
+    "seahorse"
+
     
     #Hyprland e Wayland tools
     "wl-clipboard"
     "hyprpaper"
     "hyprshot"
+    "hyprsunset"
     "swaync"
     "waybar"
     "xdg-desktop-portal-gnome"
@@ -99,6 +108,11 @@ AUR_PACKAGES=(
     "elephant-providerlist-bin"
     "elephant-runner-bin"
     "polkit-gnome-git"
+    "ezame"
+    "openbsd-netcat"
+    "waybar-weather"
+    "nautilus-open-any-terminal"
+    "spotify"
 )
 
 # Dotfiles para aplicar stow
@@ -113,6 +127,7 @@ DOTFILES_DIRS=(
     "waybar"
     "walker"
     "astro-nvim"
+    "tmux"
 )
 
 # =============================
@@ -151,13 +166,16 @@ install_yay() {
     fi
     
     log_step "Instalando yay (AUR helper)..."
-    local tmp_dir="/tmp/yay-install-$$"
-    
-    git clone https://aur.archlinux.org/yay-bin.git "$tmp_dir"
-    (cd "$tmp_dir" && makepkg -si --noconfirm)
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+
+    sudo pacman -S --needed --noconfirm git base-devel
+
+    git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"
+    (cd "$tmp_dir/yay" && makepkg -si --noconfirm)
     rm -rf "$tmp_dir"
-    
-    log_info "yay instalado!"
+
+    log_info "yay instalado (compilado do PKGBUILD)!"
 }
 
 install_aur_packages() {
@@ -246,11 +264,7 @@ setup_docker() {
 
 setup_firewall() {
     log_step "Configurando firewall..."
-    
-    sudo ufw allow https 2>/dev/null || true
-    sudo ufw allow ssh 2>/dev/null || true
-    sudo ufw --force enable
-    
+    sudo ufw enable
     log_info "UFW configurado e ativado!"
 }
 
