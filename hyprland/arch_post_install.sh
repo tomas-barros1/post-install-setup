@@ -64,7 +64,8 @@ PACMAN_PACKAGES=(
     "ttf-jetbrains-mono"
     "inter-font"
     "ttf-0xproto-nerd"
-    
+    "noto-fonts-emoji"
+
     # Aplicações
     "gimp"
     "libreoffice-fresh"
