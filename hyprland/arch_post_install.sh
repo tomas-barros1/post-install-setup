@@ -82,6 +82,8 @@ PACMAN_PACKAGES=(
     "nautilus"
     "pavucontrol"
     "seahorse"
+    "gnome-text-editor"
+    "loupe"
 
     # Hyprland e Wayland
     "wl-clipboard"
@@ -102,6 +104,10 @@ PACMAN_PACKAGES=(
     "ddcutil"
     "lxappearance"
     "xdg-utils"
+    "grim"
+    "slurp"
+    "tesseract"
+    "tesseract-data-por"
 )
 
 AUR_PACKAGES=(
@@ -391,7 +397,8 @@ setup_mime_associations() {
     log_step "Configurando associações MIME..."
 
     local browser_desktop="brave-browser.desktop"
-    local editor_desktop="org.xfce.mousepad.desktop"
+    local editor_desktop="org.gnome.TextEditor.desktop"
+    local image_viewer_desktop="org.gnome.Loupe.desktop"
 
     local browser_mimes=(
         "text/html"
@@ -402,6 +409,13 @@ setup_mime_associations() {
         "application/x-extension-htm"
         "application/x-extension-html"
         "application/x-extension-xhtml"
+    )
+
+    local image_mimes=(
+        "image/png"
+        "image/jpeg"
+        "image/webp"
+        "image/gif"
     )
 
     log_step "  Definindo Brave como browser padrão..."
@@ -421,13 +435,23 @@ setup_mime_associations() {
         FAILED_STEPS+=("mime:default-web-browser")
     fi
 
-    log_step "  Definindo Mousepad como editor de texto padrão..."
+    log_step "  Definindo GNOME Text Editor como editor de texto padrão..."
     if xdg-mime default "$editor_desktop" "text/plain"; then
-        log_info "  ✓ text/plain -> mousepad"
+        log_info "  ✓ text/plain -> gnome-text-editor"
     else
         log_warn "  ✗ text/plain (falhou)"
         FAILED_STEPS+=("mime:text/plain")
     fi
+
+    log_step "  Definindo Loupe como visualizador de imagens padrão..."
+    for mime in "${image_mimes[@]}"; do
+        if xdg-mime default "$image_viewer_desktop" "$mime"; then
+            log_info "  ✓ $mime -> loupe"
+        else
+            log_warn "  ✗ $mime (falhou)"
+            FAILED_STEPS+=("mime:$mime")
+        fi
+    done
 }
 
 setup_git() {
