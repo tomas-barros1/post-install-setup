@@ -52,9 +52,11 @@ PACMAN_PACKAGES=(
     "ttf-jetbrains-mono"
     "inter-font"
     "ttf-0xproto-nerd"
+    "noto-fonts"
 
     # Aplicações
     "gimp"
+    "gnome-calculator"
     "libreoffice-fresh"
     "qbittorrent"
     "flatpak"
@@ -69,6 +71,10 @@ PACMAN_PACKAGES=(
     "ufw"
     "ddcutil"
     "lxappearance"
+    "ntfs-3g"
+    "ntfsprogs"
+    "qt5-wayland"
+    "qt6-wayland"
 )
 
 AUR_PACKAGES=(

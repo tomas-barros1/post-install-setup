@@ -72,6 +72,7 @@ PACMAN_PACKAGES=(
     "ttf-jetbrains-mono"
     "inter-font"
     "ttf-0xproto-nerd"
+    "noto-fonts"
     "noto-fonts-emoji"
 
     # Aplicações
@@ -83,6 +84,8 @@ PACMAN_PACKAGES=(
     "pavucontrol"
     "seahorse"
     "gnome-text-editor"
+    "gnome-calculator"
+    "papers"
     "loupe"
 
     # Hyprland e Wayland
@@ -93,6 +96,8 @@ PACMAN_PACKAGES=(
     "swaync"
     "waybar"
     "xdg-desktop-portal-gnome"
+    "qt5-wayland"
+    "qt6-wayland"
 
     # Utilitários
     "wget"
@@ -106,6 +111,8 @@ PACMAN_PACKAGES=(
     "xdg-utils"
     "grim"
     "slurp"
+    "ntfs-3g"
+    "ntfsprogs"
     "tesseract"
     "tesseract-data-por"
 )
@@ -122,7 +129,7 @@ AUR_PACKAGES=(
     "elephant-providerlist-bin"
     "elephant-runner-bin"
     "polkit-gnome-git"
-    "ezame"
+    "libre-menu-editor"
     "openbsd-netcat"
     "waybar-weather"
     "nautilus-open-any-terminal"
@@ -147,6 +154,8 @@ DOTFILES_DIRS=(
 LOCAL_SCRIPTS=(
     "powermenu.sh"
     "hypr_sunset.sh"
+    "modo-monitor.sh"
+    "modo-tv.sh"
 )
 
 # =============================
@@ -504,11 +513,11 @@ install_desktop_entries() {
     log_step "Instalando entradas .desktop..."
     mkdir -p "$apps_dir" "$icons_dir"
 
-    if [[ -f "$SCRIPT_DIR/icon.png" ]]; then
-        cp "$SCRIPT_DIR/icon.png" "$icons_dir/hyprsunset.png"
+    if [[ -f "$SCRIPT_DIR/hyprsunset.png" ]]; then
+        cp "$SCRIPT_DIR/hyprsunset.png" "$icons_dir/hyprsunset.png"
         log_info "  ✓ Ícone -> $icons_dir/hyprsunset.png"
     else
-        log_warn "  ✗ icon.png não encontrado em $SCRIPT_DIR"
+        log_warn "  ✗ hyprsunset.png não encontrado em $SCRIPT_DIR"
     fi
 
     if [[ -f "$bin_dir/hypr_sunset.sh" ]]; then
