@@ -80,7 +80,11 @@ PACMAN_PACKAGES=(
     "libreoffice-fresh"
     "qbittorrent"
     "flatpak"
-    "nautilus"
+    "nemo"
+    "nemo-fileroller"
+    "file-roller"
+    "p7zip"
+    "unrar"
     "pavucontrol"
     "seahorse"
     "gnome-text-editor"
@@ -132,7 +136,6 @@ AUR_PACKAGES=(
     "libre-menu-editor"
     "openbsd-netcat"
     "waybar-weather"
-    "nautilus-open-any-terminal"
     "spotify"
 )
 
@@ -402,6 +405,20 @@ EOF
     done
 }
 
+setup_nemo_default() {
+    log_step "Definindo Nemo como gerenciador de arquivos padrão..."
+
+    xdg-mime default nemo.desktop inode/directory
+    xdg-mime default nemo.desktop application/x-gnome-saved-search
+
+    if xdg-mime query default inode/directory | grep -q nemo; then
+        log_info "  ✓ Nemo é o gerenciador de arquivos padrão"
+    else
+        log_warn "  ✗ Falha ao definir Nemo como padrão"
+        FAILED_STEPS+=("nemo:default")
+    fi
+}
+
 setup_mime_associations() {
     log_step "Configurando associações MIME..."
 
@@ -610,6 +627,7 @@ main() {
     setup_tpm
     configure_gtk_themes
     setup_mime_associations
+    setup_nemo_default
     install_local_scripts
     install_desktop_entries
     setup_git
