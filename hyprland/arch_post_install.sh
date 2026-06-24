@@ -115,10 +115,11 @@ PACMAN_PACKAGES=(
     "ntfsprogs"
     "tesseract"
     "tesseract-data-por"
+    "alacarte"
 )
 
 AUR_PACKAGES=(
-    "brave-bin"
+    "helium-browser-bin "
     "catppuccin-gtk-theme-mocha"
     "obsidian"
     "visual-studio-code-bin"
@@ -129,10 +130,9 @@ AUR_PACKAGES=(
     "elephant-providerlist-bin"
     "elephant-runner-bin"
     "polkit-gnome-git"
-    "libre-menu-editor"
     "openbsd-netcat"
     "waybar-weather"
-    "nautilus-open-any-terminal"
+    "nautilus-open-any-terminal-git"
     "spotify"
 )
 
@@ -405,7 +405,7 @@ EOF
 setup_mime_associations() {
     log_step "Configurando associações MIME..."
 
-    local browser_desktop="brave-browser.desktop"
+    local browser_desktop="helium.desktop"
     local editor_desktop="org.gnome.TextEditor.desktop"
     local image_viewer_desktop="org.gnome.Loupe.desktop"
 
@@ -427,10 +427,10 @@ setup_mime_associations() {
         "image/gif"
     )
 
-    log_step "  Definindo Brave como browser padrão..."
+    log_step "  Definindo Helium como browser padrão..."
     for mime in "${browser_mimes[@]}"; do
         if xdg-mime default "$browser_desktop" "$mime"; then
-            log_info "  ✓ $mime -> brave"
+            log_info "  ✓ $mime -> helium"
         else
             log_warn "  ✗ $mime (falhou)"
             FAILED_STEPS+=("mime:$mime")
@@ -438,7 +438,7 @@ setup_mime_associations() {
     done
 
     if xdg-settings set default-web-browser "$browser_desktop"; then
-        log_info "  ✓ Browser padrão do sistema -> Brave"
+        log_info "  ✓ Browser padrão do sistema -> Helium"
     else
         log_warn "  ✗ Falha ao definir browser padrão via xdg-settings"
         FAILED_STEPS+=("mime:default-web-browser")
@@ -451,6 +451,39 @@ setup_mime_associations() {
         log_warn "  ✗ text/plain (falhou)"
         FAILED_STEPS+=("mime:text/plain")
     fi
+
+    log_step "  Definindo Papers como visualizador de PDF padrão..."
+    local pdf_mimes=(
+        "application/pdf"
+        "application/x-bzpdf"
+        "application/x-gzpdf"
+        "application/x-xzpdf"
+        "application/x-ext-pdf"
+        "application/postscript"
+        "application/x-bzpostscript"
+        "application/x-gzpostscript"
+        "image/x-eps"
+        "image/x-bzeps"
+        "image/x-gzeps"
+        "application/x-dvi"
+        "application/x-bzdvi"
+        "application/x-gzdvi"
+        "image/vnd.djvu"
+        "application/vnd.comicbook-rar"
+        "application/vnd.comicbook+zip"
+        "application/x-cbr"
+        "application/x-cbz"
+        "application/x-cb7"
+        "application/x-cbt"
+    )
+    for mime in "${pdf_mimes[@]}"; do
+        if xdg-mime default org.gnome.Papers.desktop "$mime"; then
+            log_info "  ✓ $mime -> papers"
+        else
+            log_warn "  ✗ $mime (falhou)"
+            FAILED_STEPS+=("mime:$mime")
+        fi
+    done
 
     log_step "  Definindo Loupe como visualizador de imagens padrão..."
     for mime in "${image_mimes[@]}"; do
