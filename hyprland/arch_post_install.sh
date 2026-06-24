@@ -119,7 +119,7 @@ PACMAN_PACKAGES=(
 )
 
 AUR_PACKAGES=(
-    "helium-browser-bin "
+    "helium-browser-bin"
     "catppuccin-gtk-theme-mocha"
     "obsidian"
     "visual-studio-code-bin"
@@ -133,6 +133,7 @@ AUR_PACKAGES=(
     "openbsd-netcat"
     "waybar-weather"
     "nautilus-open-any-terminal-git"
+    "peazip"
     "spotify"
 )
 
@@ -442,6 +443,15 @@ setup_mime_associations() {
     else
         log_warn "  ✗ Falha ao definir browser padrão via xdg-settings"
         FAILED_STEPS+=("mime:default-web-browser")
+    fi
+
+    log_step "  Definindo Nautilus como gerenciador de arquivos padrão..."
+    xdg-mime default org.gnome.Nautilus.desktop inode/directory
+    if xdg-mime query default inode/directory | grep -q nautilus; then
+        log_info "  ✓ inode/directory -> nautilus"
+    else
+        log_warn "  ✗ inode/directory (falhou)"
+        FAILED_STEPS+=("mime:inode/directory")
     fi
 
     log_step "  Definindo GNOME Text Editor como editor de texto padrão..."
