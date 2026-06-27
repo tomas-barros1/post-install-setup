@@ -77,34 +77,8 @@ function Ensure-Choco {
 function Restore-PhotoViewer {
     Log "Restaurando Windows Photo Viewer..."
 
-    $regContent = @"
-Windows Registry Editor Version 5.00
-
-[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows Photo Viewer\Capabilities\FileAssociations]
-".tif"="PhotoViewer.FileAssoc.Tiff"
-".tiff"="PhotoViewer.FileAssoc.Tiff"
-".bmp"="PhotoViewer.FileAssoc.Bmp"
-".dib"="PhotoViewer.FileAssoc.Bmp"
-".gif"="PhotoViewer.FileAssoc.Gif"
-".jfif"="PhotoViewer.FileAssoc.Jpeg"
-".jpe"="PhotoViewer.FileAssoc.Jpeg"
-".jpeg"="PhotoViewer.FileAssoc.Jpeg"
-".jpg"="PhotoViewer.FileAssoc.Jpeg"
-".jxr"="PhotoViewer.FileAssoc.Wdp"
-".png"="PhotoViewer.FileAssoc.Png"
-".wdp"="PhotoViewer.FileAssoc.Wdp"
-"@
-
-    $regFile = "$env:TEMP\restore_photo_viewer.reg"
-    $regContent | Out-File -FilePath $regFile -Encoding ascii
+    $regFile = Join-Path $PSScriptRoot "Restore_Windows_Photo_Viewer_CURRENT_USER.reg"
     regedit.exe /s $regFile
-
-    # Define como app padrão no registro
-    $path = "HKCU:\Software\Classes\Applications\photoviewer.dll\shell\open"
-    New-Item -Path "$path\command" -Force | Out-Null
-    Set-ItemProperty -Path "$path\command" -Name "(Default)" -Value "%SystemRoot%\System32\rundll32.exe `"%ProgramFiles%\Windows Photo Viewer\PhotoViewer.dll`", ImageView_Fullscreen %1"
-    New-Item -Path "$path\DropTarget" -Force | Out-Null
-    Set-ItemProperty -Path "$path\DropTarget" -Name "Clsid" -Value "{FFE2A43C-56B9-4bf5-9A79-CC6D4285608A}"
 
     Log "Windows Photo Viewer restaurado. Associe as extensões em 'Aplicativos padrão' se necessário."
 }
