@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Sunsetr
+Comment=Alterna o filtro de luz azul (sunsetr)
+Exec=@BIN_DIR@/sunsetr.sh
+Icon=night-light
+Terminal=false
+Type=Application
+Categories=Utility;

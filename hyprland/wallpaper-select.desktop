@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Wallpaper Select
+Comment=Seleciona um wallpaper usando imv
+Exec=@BIN_DIR@/wallpaper-select.sh
+Icon=preferences-desktop-wallpaper
+Terminal=false
+Type=Application
+Categories=Settings;Appearance;

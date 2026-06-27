@@ -37,7 +37,6 @@ PACMAN_PACKAGES=(
     "pnpm"
     "yarn"
     "opencode"
-    "ollama"
 
     # Tema de ícones
     "tela-circle-icon-theme-purple"
@@ -90,7 +89,7 @@ PACMAN_PACKAGES=(
 
     # Hyprland e Wayland
     "wl-clipboard"
-    "hyprpaper"
+    "swaybg"
     "hyprshot"
     "hyprsunset"
     "swaync"
@@ -101,6 +100,7 @@ PACMAN_PACKAGES=(
 
     # Utilitários
     "wget"
+    "imv"
     "aria2"
     "curl"
     "unzip"
@@ -157,6 +157,17 @@ LOCAL_SCRIPTS=(
     "hypr_sunset.sh"
     "modo-monitor.sh"
     "modo-tv.sh"
+    "sunsetr.sh"
+    "wallpaper-select.sh"
+)
+
+LOCAL_DESKTOP_ENTRIES=(
+    "hypr_sunset.desktop"
+    "modo-monitor.desktop"
+    "modo-tv.desktop"
+    "powermenu.desktop"
+    "sunsetr.desktop"
+    "wallpaper-select.desktop"
 )
 
 # =============================
@@ -300,10 +311,6 @@ setup_mise() {
         echo -e '\n# Mise runtime manager\nmise activate fish | source' >> "$fish_config"
         log_info "Mise adicionado ao config.fish"
     fi
-
-    log_step "Instalando runtimes (Ruby, Node)..."
-    mise use -g ruby@latest || { log_warn "Falha ao instalar Ruby"; FAILED_STEPS+=("mise:ruby"); }
-    mise use -g node@latest || { log_warn "Falha ao instalar Node.js"; FAILED_STEPS+=("mise:node"); }
 }
 
 setup_docker() {
@@ -563,20 +570,20 @@ install_desktop_entries() {
         log_warn "  ✗ hyprsunset.png não encontrado em $SCRIPT_DIR"
     fi
 
-    if [[ -f "$bin_dir/hypr_sunset.sh" ]]; then
-        cat > "$apps_dir/Hyprsunset.desktop" <<-EOF
-[Desktop Entry]
-Name=Hyprsunset
-Type=Application
-Exec=$bin_dir/hypr_sunset.sh
-Icon=hyprsunset
-EOF
-        chmod +x "$apps_dir/Hyprsunset.desktop"
-        log_info "  ✓ Hyprsunset.desktop"
-    else
-        log_warn "  ✗ hypr_sunset.sh não encontrado em $bin_dir (rode install_local_scripts antes)"
-        FAILED_STEPS+=("desktop:hyprsunset")
-    fi
+    for desktop in "${LOCAL_DESKTOP_ENTRIES[@]}"; do
+        local src="$SCRIPT_DIR/$desktop"
+        local dest="$apps_dir/$desktop"
+
+        if [[ ! -f "$src" ]]; then
+            log_warn "  ✗ $desktop não encontrado"
+            FAILED_STEPS+=("desktop:$desktop")
+        else
+            cp "$src" "$dest"
+            sed -i "s|@BIN_DIR@|$bin_dir|g" "$dest"
+            chmod +x "$dest"
+            log_info "  ✓ $desktop"
+        fi
+    done
 }
 
 # =============================
