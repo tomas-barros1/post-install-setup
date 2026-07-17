@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Modo Monitor
+Comment=Ativa o monitor DP-1 e desativa a TV HDMI
+Exec=@BIN_DIR@/modo-monitor.sh
+Icon=video-display
+Terminal=false
+Type=Application
+Categories=Settings;Hardware;

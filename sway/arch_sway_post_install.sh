@@ -50,7 +50,6 @@ PACMAN_PACKAGES=(
     # Terminal & CLI Tools
     "fish"
     "foot"
-    "zellij"
     "tmux"
     "networkmanager"
     "stow"
@@ -87,7 +86,7 @@ PACMAN_PACKAGES=(
     "libreoffice-fresh"
     "qbittorrent"
     "flatpak"
-    "nautilus"
+    "nemo"
     "pavucontrol"
     "seahorse"
     "gnome-text-editor"
@@ -102,16 +101,15 @@ PACMAN_PACKAGES=(
     "obs-studio"
 
     # Hyprland e Wayland
-    "hyprland"
+    "sway"
     "sddm"
     "xdg-desktop-portal"
-    "xdg-desktop-portal-hyprland"
+    "xdg-desktop-portal-gnome"
     "pipewire-pulse"
     "wireplumber"
     "wl-clipboard"
     "swaybg"
-    "hyprshot"
-    "hyprsunset"
+    "flameshot"
     "swaync"
     "waybar"
     "qt5-wayland"
@@ -167,9 +165,9 @@ AUR_PACKAGES=(
     "polkit-gnome-git"
     "openbsd-netcat"
     "waybar-weather"
-    "nautilus-open-any-terminal-git"
     "peazip"
     "spotify"
+    "sunsetr-bin"
 )
 
 DOTFILES_DIRS=(
@@ -511,10 +509,10 @@ setup_mime_associations() {
         FAILED_STEPS+=("mime:default-web-browser")
     fi
 
-    log_step "  Definindo Nautilus como gerenciador de arquivos padrão..."
-    xdg-mime default org.gnome.Nautilus.desktop inode/directory
-    if xdg-mime query default inode/directory | grep -q nautilus; then
-        log_info "  ✓ inode/directory -> nautilus"
+    log_step "  Definindo Nemo como gerenciador de arquivos padrão..."
+    xdg-mime default nemo.desktop inode/directory
+    if xdg-mime query default inode/directory | grep -q nemo; then
+        log_info "  ✓ inode/directory -> nemo"
     else
         log_warn "  ✗ inode/directory (falhou)"
         FAILED_STEPS+=("mime:inode/directory")
