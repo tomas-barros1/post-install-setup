@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Arch Post-Install
-Comment=Executa a configuração pós-instalação do Arch Linux
-Exec=/home/tom/post-install-setup/hyprland/arch_post_install.sh
-Icon=system-software-update
-Terminal=true
-Type=Application
-Categories=System;Setup;

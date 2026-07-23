@@ -92,21 +92,12 @@ Ensure-Choco
 # ================================
 Install-Winget "Git.Git"
 Install-Winget "Microsoft.VisualStudio.Community"
-Install-Winget "JetBrains.IntelliJIDEA"
 Install-Winget "Docker.DockerDesktop"
-Install-Winget "HeidiSQL.HeidiSQL"
 Install-Winget "Yaak.app"
 Install-Winget "Neovim.Neovim"
-Install-Winget "Microsoft.VisualStudioCode"
-Install-Winget "ZedIndustries.Zed"
-Install-Winget "Oracle.JDK.25"
 Install-Winget "Python.Python.3.14"
 Install-Winget "Python.Launcher"
-Install-Winget "zig.zig"
 Install-Winget "Gyan.FFmpeg"
-Install-Winget "rjpcomputing.luaforwindows"
-Install-Winget "Microsoft.WindowsSDK.10.0.26100"
-Install-Winget "Microsoft.WSL"
 
 # ================================
 # TERMINAL / SHELL
@@ -122,13 +113,11 @@ Install-Winget "sharkdp.bat"
 # UTIL
 # ================================
 Install-Winget "SumatraPDF.SumatraPDF"
-Install-Winget "KeePassXCTeam.KeePassXC"
 Install-Winget "dotPDN.PaintDotNet"
 Install-Winget "qBittorrent.qBittorrent"
 Install-Winget "7zip.7zip"
 Install-Winget "VideoLAN.VLC"
 Install-Winget "Notepad++.Notepad++"
-Install-Winget "SublimeHQ.SublimeText.4"
 Install-Winget "RevoUninstaller.RevoUninstaller"
 Install-Winget "flux.flux"
 

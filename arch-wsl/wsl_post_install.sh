@@ -34,13 +34,11 @@ PACMAN_PACKAGES=(
     "python-pip"
     "docker"
     "docker-compose"
-    "pnpm"
-    "yarn"
     "opencode"
 
     # Terminal & CLI Tools
     "fish"
-    "zellij"
+    "less"
     "tmux"
     "stow"
     "fzf"
@@ -53,6 +51,16 @@ PACMAN_PACKAGES=(
     "starship"
     "lazygit"
     "lazydocker"
+    "github-cli"
+    "git-delta"
+    "fastfetch"
+    "reflector"
+    "yazi"
+    "tldr"
+    "yt-dlp"
+    "unrar"
+    "gum"
+    "usage"
 
     # Utilitários
     "wget"
@@ -60,13 +68,13 @@ PACMAN_PACKAGES=(
     "curl"
     "unzip"
     "zip"
+    "unrar"
 )
 
 DOTFILES_DIRS=(
     "fish"
-    "nvim"
+    "lazy-nvim"
     "tmux"
-    "astro-nvim"
 )
 
 # =============================
@@ -143,7 +151,7 @@ install_yay() {
 
     sudo pacman -S --needed --noconfirm git base-devel
     git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"
-    (cd "$tmp_dir/yay" && makepkg -si)
+    (cd "$tmp_dir/yay" && makepkg -si --noconfirm)
 
     rm -rf "$tmp_dir"
     log_info "yay instalado!"
@@ -179,64 +187,29 @@ setup_dotfiles() {
     cd - >/dev/null
 }
 
-setup_mise() {
-    if command -v mise &>/dev/null; then
-        log_info "mise já instalado"
+setup_docker() {
+    log_step "Configurando Docker..."
+
+    sudo systemctl enable docker.service
+
+    if ! groups "$USER" | grep -q docker; then
+        sudo usermod -aG docker "$USER"
+        log_warn "Grupo docker adicionado. FAÇA LOGOUT/LOGIN para aplicar!"
     else
-        log_step "Instalando mise..."
-        curl https://mise.run | sh
+        log_info "Usuário já no grupo docker"
     fi
-
-    local fish_config="$HOME/.config/fish/config.fish"
-    mkdir -p "$(dirname "$fish_config")"
-
-    if ! grep -q "mise activate fish" "$fish_config" 2>/dev/null; then
-        echo -e '\n# Mise runtime manager\nmise activate fish | source' >> "$fish_config"
-        log_info "Mise adicionado ao config.fish"
-    fi
-
-    log_step "Instalando runtimes (Ruby, Node)..."
 }
 
 setup_fish_shell() {
-    local fish_path
-    fish_path=$(command -v fish 2>/dev/null || echo "/usr/bin/fish")
-
-    if [[ "$SHELL" == "$fish_path" ]]; then
-        log_info "Fish já é o shell padrão"
-        return 0
-    fi
-
-    log_step "Definindo Fish como shell padrão..."
-
-    if ! grep -q "$fish_path" /etc/shells; then
-        echo "$fish_path" | sudo tee -a /etc/shells >/dev/null
-        log_info "Fish adicionado ao /etc/shells"
-    fi
-
-    chsh -s "$fish_path" || {
-        log_warn "Falha ao trocar shell. Execute manualmente: chsh -s $fish_path"
-        FAILED_STEPS+=("fish:chsh")
-    }
+    log_step "Configurando shell padrão para o Fish"
+    sudo chsh -s /usr/bin/fish
+    log_info "Shell alterado com sucesso!"
 }
 
 setup_tpm() {
-    local tpm_dir="$HOME/.tmux/plugins/tpm"
-
-    if [[ -d "$tpm_dir/.git" ]]; then
-        log_step "Atualizando TPM..."
-        git -C "$tpm_dir" pull --ff-only && \
-            log_info "TPM atualizado" || \
-            log_warn "Falha ao atualizar TPM"
-    else
-        log_step "Instalando TPM..."
-        mkdir -p "$(dirname "$tpm_dir")"
-        git clone https://github.com/tmux-plugins/tpm "$tpm_dir" && \
-            log_info "TPM instalado em $tpm_dir" || {
-                log_error "Falha ao instalar TPM"
-                FAILED_STEPS+=("tpm")
-            }
-    fi
+    log_step "Configurando TPM (TMUX plugin manager)"
+    git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+    log_step "Tpm configurado"
 }
 
 setup_git() {
@@ -258,6 +231,21 @@ setup_git() {
     git config --global core.autocrlf input     || true
     git config --global init.defaultBranch main || true
     git config --global pull.rebase false       || true
+
+    git config --global core.pager delta                    || true
+    git config --global interactive.diffFilter "delta --color-only" || true
+    git config --global delta.navigate true                 || true
+    git config --global delta.light false                   || true
+    git config --global merge.conflictstyle zdiff3         || true
+}
+
+cleanup_yay() {
+    log_step "Limpando dependências de build do yay..."
+    if yay -Ycc --noconfirm 2>/dev/null; then
+        log_info "Dependências de build removidas!"
+    else
+        log_warn "Falha ao limpar pacotes de build (pode já estar limpo)"
+    fi
 }
 
 # =============================
@@ -295,9 +283,8 @@ print_summary() {
     echo ""
     log_warn "Próximos passos:"
     echo "  1. Faça LOGOUT e LOGIN para aplicar o grupo docker"
-    echo "  2. Reinicie o terminal para ativar Fish e Mise"
-    echo "  3. Execute 'mise doctor' para verificar runtimes"
-    echo "  4. No tmux, pressione <prefix> + I para instalar plugins via TPM"
+    echo "  2. Reinicie o terminal para ativar Fish"
+    echo "  3. No tmux, pressione <prefix> + I para instalar plugins via TPM"
     echo ""
     log_info "Log salvo em: $LOGFILE"
     echo ""
@@ -326,10 +313,11 @@ main() {
     install_pacman_packages
     install_yay
     setup_dotfiles
-    setup_mise
+    setup_docker
     setup_fish_shell
     setup_tpm
     setup_git
+    cleanup_yay
 
     print_summary
 }

@@ -34,8 +34,6 @@ PACMAN_PACKAGES=(
     "python-pip"
     "docker"
     "docker-compose"
-    "pnpm"
-    "yarn"
     "opencode"
 
     # Tema de ícones
@@ -49,8 +47,10 @@ PACMAN_PACKAGES=(
 
     # Terminal & CLI Tools
     "fish"
+    "less"
+    "mise"
+    "usage"
     "foot"
-    "zellij"
     "tmux"
     "networkmanager"
     "stow"
@@ -69,6 +69,7 @@ PACMAN_PACKAGES=(
     "fastfetch"
     "reflector"
     "yazi"
+    "tldr"
     "yt-dlp"
     "unrar"
     "gum"
@@ -103,27 +104,24 @@ PACMAN_PACKAGES=(
 
     # Hyprland e Wayland
     "hyprland"
-    "sddm"
+    "uwsm"
     "xdg-desktop-portal"
     "xdg-desktop-portal-hyprland"
-    "pipewire-pulse"
-    "wireplumber"
     "wl-clipboard"
     "swaybg"
+    "flameshot"
     "hyprshot"
     "hyprsunset"
     "swaync"
     "waybar"
     "qt5-wayland"
     "qt6-wayland"
-    "qt5ct"
-    "qt6ct"
-    "kvantum"
     "nwg-look"
     "wdisplays"
     "wlr-randr"
     "network-manager-applet"
     "playerctl"
+    "greetd-regreet"
 
     # Utilitários
     "wget"
@@ -145,7 +143,7 @@ PACMAN_PACKAGES=(
     "bluez"
     "bluez-utils"
     "blueman"
-
+    "openbsd-netcat"
 )
 
 AUR_PACKAGES=(
@@ -164,8 +162,10 @@ AUR_PACKAGES=(
     "elephant-symbols-bin"
     "elephant-todo-bin"
     "elephant-websearch-bin"
+    "qt5ct-kde"
+    "qt6ct-kde"
     "polkit-gnome-git"
-    "openbsd-netcat"
+    "sunsetr-bin"
     "waybar-weather"
     "nautilus-open-any-terminal-git"
     "peazip"
@@ -173,16 +173,14 @@ AUR_PACKAGES=(
 )
 
 DOTFILES_DIRS=(
-    "alacritty"
+    "foot"
     "fish"
-    "nvim"
     "zed"
-    "zellij"
     "hypr"
     "swaync"
-    "waybar"
+    "waybar-new-style"
     "walker"
-    "astro-nvim"
+    "lazy-nvim"
     "tmux"
 )
 
@@ -200,7 +198,6 @@ LOCAL_DESKTOP_ENTRIES=(
     "hypr_sunset.desktop"
     "modo-monitor.desktop"
     "modo-tv.desktop"
-    "powermenu.desktop"
     "sunsetr.desktop"
     "wallpaper-select.desktop"
 )
@@ -285,6 +282,28 @@ install_yay() {
     log_info "yay instalado!"
 }
 
+setup_chaotic_aur() {
+    if grep -q "chaotic-aur" /etc/pacman.conf 2>/dev/null; then
+        log_info "Chaotic AUR já configurado"
+        return 0
+    fi
+
+    log_step "Configurando Chaotic AUR..."
+
+    sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
+    sudo pacman-key --lsign-key 3056513887B78AEB
+
+    sudo pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
+    sudo pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+
+    if ! grep -q "chaotic-aur" /etc/pacman.conf; then
+        echo -e "\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist" | sudo tee -a /etc/pacman.conf
+    fi
+
+    sudo pacman -Syu --noconfirm
+    log_info "Chaotic AUR configurado!"
+}
+
 install_aur_packages() {
     log_step "Instalando pacotes do AUR (${#AUR_PACKAGES[@]} pacotes)..."
 
@@ -331,28 +350,10 @@ setup_dotfiles() {
     cd - >/dev/null
 }
 
-setup_mise() {
-    if command -v mise &>/dev/null; then
-        log_info "mise já instalado"
-    else
-        log_step "Instalando mise..."
-        curl https://mise.run | sh
-    fi
-
-    local fish_config="$HOME/.config/fish/config.fish"
-    mkdir -p "$(dirname "$fish_config")"
-
-    if ! grep -q "mise activate fish" "$fish_config" 2>/dev/null; then
-        echo -e '\n# Mise runtime manager\nmise activate fish | source' >> "$fish_config"
-        log_info "Mise adicionado ao config.fish"
-    fi
-}
-
 setup_docker() {
     log_step "Configurando Docker..."
 
     sudo systemctl enable docker.service
-    sudo systemctl start docker.service || log_warn "Falha ao iniciar docker (pode já estar rodando)"
 
     if ! groups "$USER" | grep -q docker; then
         sudo usermod -aG docker "$USER"
@@ -368,105 +369,24 @@ setup_firewall() {
     log_info "UFW configurado e ativado!"
 }
 
-setup_reflector() {
-    log_step "Configurando espelhos Arch (reflector)..."
-    log_info "  (Isso pode levar alguns minutos...)"
-
-    sudo reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
-    log_info "  ✓ Mirrorlist atualizado com os mirrors mais rápidos"
-}
-
 setup_fish_shell() {
-    local fish_path
-    fish_path=$(command -v fish 2>/dev/null || echo "/usr/bin/fish")
-
-    if [[ "$SHELL" == "$fish_path" ]]; then
-        log_info "Fish já é o shell padrão"
-        return 0
-    fi
-
-    log_step "Definindo Fish como shell padrão..."
-
-    if ! grep -q "$fish_path" /etc/shells; then
-        echo "$fish_path" | sudo tee -a /etc/shells >/dev/null
-        log_info "Fish adicionado ao /etc/shells"
-    fi
-
-    chsh -s "$fish_path" || {
-        log_warn "Falha ao trocar shell. Execute manualmente: chsh -s $fish_path"
-        FAILED_STEPS+=("fish:chsh")
-    }
+    log_step "Configurando shell padrão para o Fish"
+    sudo chsh -s /usr/bin/fish
+    log_info "Shell alterado com sucesso!"
 }
 
 setup_tpm() {
-    local tpm_dir="$HOME/.tmux/plugins/tpm"
-
-    if [[ -d "$tpm_dir/.git" ]]; then
-        log_step "Atualizando TPM..."
-        git -C "$tpm_dir" pull --ff-only && \
-            log_info "TPM atualizado" || \
-            log_warn "Falha ao atualizar TPM"
-    else
-        log_step "Instalando TPM..."
-        mkdir -p "$(dirname "$tpm_dir")"
-        git clone https://github.com/tmux-plugins/tpm "$tpm_dir" && \
-            log_info "TPM instalado em $tpm_dir" || {
-                log_error "Falha ao instalar TPM"
-                FAILED_STEPS+=("tpm")
-            }
-    fi
+    log_step "Configurando TPM (TMUX plugin manager)"
+    git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+    log_step "Tpm configurado"
 }
 
-configure_gtk_themes() {
-    log_step "Configurando temas GTK (modo escuro)..."
-
-    local gtk_dirs=(
-        "$HOME/.config/gtk-3.0"
-        "$HOME/.config/gtk-4.0"
-    )
-
-    for dir in "${gtk_dirs[@]}"; do
-        mkdir -p "$dir"
-        local file="$dir/settings.ini"
-
-        if [[ -f "$file" ]] && [[ ! -f "$file.bak" ]]; then
-            cp "$file" "$file.bak"
-            log_info "  Backup criado: $file.bak"
-        fi
-
-        if [[ -f "$file" ]]; then
-            if grep -q "^gtk-application-prefer-dark-theme" "$file"; then
-                sed -i 's/^gtk-application-prefer-dark-theme=.*/gtk-application-prefer-dark-theme=1/' "$file"
-            elif grep -q "^\[Settings\]" "$file"; then
-                sed -i '/^\[Settings\]/a gtk-application-prefer-dark-theme=1' "$file"
-            else
-                echo -e "\n[Settings]\ngtk-application-prefer-dark-theme=1" >> "$file"
-            fi
-        else
-            cat > "$file" <<-EOF
-[Settings]
-gtk-application-prefer-dark-theme=1
-EOF
-        fi
-
-        log_info "  ✓ $(basename "$dir"): modo escuro ativado"
-    done
-}
-
-setup_default_terminal() {
-    log_step "Configurando Foot como terminal padrão..."
-
-    local mimeapps="$HOME/.config/mimeapps.list"
-    mkdir -p "$(dirname "$mimeapps")"
-    touch "$mimeapps"
-
-    if grep -q "x-terminal-emulator=" "$mimeapps" 2>/dev/null; then
-        sed -i 's|^x-terminal-emulator=.*|x-terminal-emulator=foot.desktop|' "$mimeapps"
-    else
-        echo "x-terminal-emulator=foot.desktop" >> "$mimeapps"
-    fi
-
-    log_info "  ✓ Foot definido como terminal padrão via mimeapps.list"
+setup_gsettings() {
+    log_step "Configurando Gsettings"
+    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+    gsettings set com.github.stunkymonkey.nautilus-open-any-terminal terminal footclient
+    gsettings set org.gnome.desktop.wm.preferences button-layout ':'
+    log_step "Gsettings configurado!"
 }
 
 setup_mime_associations() {
@@ -591,6 +511,12 @@ setup_git() {
     git config --global core.autocrlf input     || true
     git config --global init.defaultBranch main || true
     git config --global pull.rebase false       || true
+
+    git config --global core.pager delta                    || true
+    git config --global interactive.diffFilter "delta --color-only" || true
+    git config --global delta.navigate true                 || true
+    git config --global delta.light false                   || true
+    git config --global merge.conflictstyle zdiff3         || true
 }
 
 install_local_scripts() {
@@ -643,6 +569,70 @@ install_desktop_entries() {
             log_info "  ✓ $desktop"
         fi
     done
+}
+
+setup_gaming() {
+    read -r -p "Deseja configurar o setup de gaming? [s/N] " response
+    case "$response" in
+        [sS][iI][mM]|[sS])
+            log_step "Configurando setup de gaming..."
+
+            sudo pacman -S --noconfirm --needed gamemode lact
+            yay -S --noconfirm --needed steam-devices-git
+
+            flatpak install -y flathub com.valvesoftware.Steam
+            flatpak install -y flathub io.github.benjamimgois.goverlay
+            flatpak install -y flathub net.lutris.Lutris
+            flatpak install -y flathub net.davidotek.pupgui2
+
+            log_info "Setup de gaming instalado!"
+            ;;
+        *)
+            log_info "Setup de gaming pulado."
+            ;;
+    esac
+}
+
+cleanup_yay() {
+    log_step "Limpando dependências de build do yay..."
+    if yay -Ycc --noconfirm 2>/dev/null; then
+        log_info "Dependências de build removidas!"
+    else
+        log_warn "Falha ao limpar pacotes de build (pode já estar limpo)"
+    fi
+}
+
+setup_greeter() {
+    log_step "Configurando greetd greeter..."
+
+    local greeter_dir="$SCRIPT_DIR/greeter"
+    local dest_dir="/etc/greetd"
+
+    if [[ ! -d "$greeter_dir" ]]; then
+        log_warn "  ✗ Diretório greeter/ não encontrado em $SCRIPT_DIR"
+        FAILED_STEPS+=("greeter:missing-dir")
+        return 1
+    fi
+
+    sudo systemctl enable greetd.service
+    log_info "  ✓ greetd.service habilitado"
+
+    sudo mkdir -p "$dest_dir"
+
+    for file in config.toml hyprland.lua regreet.toml; do
+        if [[ -f "$greeter_dir/$file" ]]; then
+            if [[ ! -f "$dest_dir/$file" ]] || ! diff -q "$greeter_dir/$file" "$dest_dir/$file" &>/dev/null; then
+                sudo cp "$greeter_dir/$file" "$dest_dir/$file"
+                log_info "  ✓ $file -> $dest_dir/$file"
+            else
+                log_info "  ✓ $file (já atualizado)"
+            fi
+        else
+            log_warn "  ✗ $file não encontrado em greeter/"
+            FAILED_STEPS+=("greeter:$file")
+        fi
+    done
+    log_info "Greeter configurado!"
 }
 
 # =============================
@@ -710,20 +700,21 @@ main() {
 
     install_pacman_packages
     install_yay
+    setup_chaotic_aur
     install_aur_packages
     setup_dotfiles
-    setup_mise
     setup_docker
     setup_firewall
-    setup_reflector
     setup_fish_shell
     setup_tpm
-    configure_gtk_themes
-    setup_default_terminal
+    setup_gsettings
     setup_mime_associations
     install_local_scripts
     install_desktop_entries
     setup_git
+    setup_greeter
+    setup_gaming
+    cleanup_yay
 
     print_summary
 }

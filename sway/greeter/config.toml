@@ -1,0 +1,10 @@
+[terminal]
+vt = 1
+
+[default_session]
+command = "dbus-run-session sway --config /etc/greetd/sway-config"
+user = "greeter"
+
+[initial_session]
+command = "sway"
+user = "tom"
