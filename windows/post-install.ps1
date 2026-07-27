@@ -1,7 +1,3 @@
-# ================================
-# POST INSTALL WINDOWS - TUNADO
-# ================================
-$ErrorActionPreference = "SilentlyContinue"
 $logFile = "$env:USERPROFILE\postinstall_log.txt"
 
 function Log {
@@ -22,36 +18,66 @@ function Install-Choco {
     choco install $id -y
 }
 
-# ================================
-# VERIFICA / INSTALA WINGET
-# ================================
+function Test-Admin {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $p = New-Object Security.Principal.WindowsPrincipal($id)
+    return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+if (-not (Test-Admin)) {
+    Write-Host "Rode este script como Administrador (winget/choco precisam de elevação)." -ForegroundColor Red
+    exit 1
+}
+
+function Refresh-Env {
+    $machine = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    $user    = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $env:Path = "$machine;$user"
+}
+
 function Ensure-Winget {
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         Log "winget já instalado: $(winget --version)"
         return
     }
 
-    Log "winget não encontrado. Instalando..."
+    Log "winget não encontrado. Instalando dependências e o pacote..."
 
-    $releases = "https://api.github.com/repos/microsoft/winget-cli/releases/latest"
-    $latest   = Invoke-RestMethod -Uri $releases
-    $msixUrl  = ($latest.assets | Where-Object { $_.name -like "*.msixbundle" }).browser_download_url
-    $msixPath = "$env:TEMP\winget.msixbundle"
+    try {
+        $tmp = "$env:TEMP\winget-install"
+        New-Item -ItemType Directory -Path $tmp -Force | Out-Null
 
-    Invoke-WebRequest -Uri $msixUrl -OutFile $msixPath -UseBasicParsing
-    Add-AppxPackage -Path $msixPath
+        $vclibsUrl   = "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx"
+        $xamlAppxUrl = "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx"
 
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Log "winget instalado com sucesso: $(winget --version)"
-    } else {
-        Log "ERRO: falha ao instalar winget. Abortando."
+        Invoke-WebRequest -Uri $vclibsUrl -OutFile "$tmp\vclibs.appx" -UseBasicParsing -ErrorAction Stop
+        Invoke-WebRequest -Uri $xamlAppxUrl -OutFile "$tmp\xaml.appx" -UseBasicParsing -ErrorAction Stop
+
+        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest" -ErrorAction Stop
+        $msixUrl  = ($releases.assets | Where-Object { $_.name -like "*.msixbundle" }).browser_download_url
+        if (-not $msixUrl) { throw "Não encontrei o .msixbundle no release do winget." }
+
+        $msixPath = "$tmp\winget.msixbundle"
+        Invoke-WebRequest -Uri $msixUrl -OutFile $msixPath -UseBasicParsing -ErrorAction Stop
+
+        Add-AppxPackage -Path "$tmp\vclibs.appx" -ErrorAction Stop
+        Add-AppxPackage -Path "$tmp\xaml.appx" -ErrorAction Stop
+        Add-AppxPackage -Path $msixPath -ErrorAction Stop
+
+        Refresh-Env
+
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Log "winget instalado com sucesso: $(winget --version)"
+        } else {
+            Log "AVISO: winget instalado mas não reconhecido nesta sessão. Talvez precise reabrir o PowerShell."
+        }
+    }
+    catch {
+        Log "ERRO ao instalar winget: $($_.Exception.Message)"
         exit 1
     }
 }
 
-# ================================
-# VERIFICA / INSTALA CHOCOLATEY
-# ================================
 function Ensure-Choco {
     if (Get-Command choco -ErrorAction SilentlyContinue) {
         Log "Chocolatey já instalado: $(choco --version)"
@@ -60,27 +86,35 @@ function Ensure-Choco {
 
     Log "Chocolatey não encontrado. Instalando..."
 
-    Set-ExecutionPolicy Bypass -Scope Process -Force
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    try {
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
-    if (Get-Command choco -ErrorAction SilentlyContinue) {
-        Log "Chocolatey instalado com sucesso: $(choco --version)"
-    } else {
-        Log "ERRO: falha ao instalar Chocolatey. Pacotes choco serão ignorados."
+        Refresh-Env
+
+        if (Get-Command choco -ErrorAction SilentlyContinue) {
+            Log "Chocolatey instalado com sucesso: $(choco --version)"
+        } else {
+            Log "AVISO: choco instalado mas não reconhecido nesta sessão. Talvez precise reabrir o PowerShell."
+        }
+    }
+    catch {
+        Log "ERRO ao instalar Chocolatey: $($_.Exception.Message)"
     }
 }
 
-# ================================
-# RESTAURA WINDOWS PHOTO VIEWER
-# ================================
 function Restore-PhotoViewer {
     Log "Restaurando Windows Photo Viewer..."
 
     $regFile = Join-Path $PSScriptRoot "Restore_Windows_Photo_Viewer_CURRENT_USER.reg"
-    regedit.exe /s $regFile
 
-    Log "Windows Photo Viewer restaurado. Associe as extensões em 'Aplicativos padrão' se necessário."
+    if (Test-Path $regFile) {
+        regedit.exe /s $regFile
+        Log "Windows Photo Viewer restaurado. Associe as extensões em 'Aplicativos padrão' se necessário."
+    } else {
+        Log "AVISO: arquivo .reg não encontrado em $regFile. Pulando restauração do Photo Viewer."
+    }
 }
 
 Log "=== INICIANDO SETUP ==="

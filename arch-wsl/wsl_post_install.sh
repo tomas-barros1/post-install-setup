@@ -35,6 +35,7 @@ PACMAN_PACKAGES=(
     "docker"
     "docker-compose"
     "opencode"
+    "mise"
 
     # Terminal & CLI Tools
     "fish"
