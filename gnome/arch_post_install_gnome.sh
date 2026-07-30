@@ -14,6 +14,8 @@ log_warn() { echo -e "${YELLOW}⚠${NC} $1"; }
 log_error() { echo -e "${RED}✖${NC} $1"; }
 log_step() { echo -e "${BLUE}➜${NC} $1"; }
 
+FAILED_STEPS=()
+
 # =============================
 # Pacotes para GNOME (baseado no script de Hyprland,
 # removendo itens específicos de WM)
@@ -221,13 +223,18 @@ setup_firewall() {
 }
 
 setup_fish_shell() {
-    if [[ "$SHELL" == "/usr/bin/fish" ]]; then
-        log_info "Fish já é o shell padrão"
-        return 0
+    log_step "Configurando shell padrão para o Fish"
+
+    if ! grep -qx "/usr/bin/fish" /etc/shells; then
+        echo "/usr/bin/fish" | sudo tee -a /etc/shells >/dev/null
     fi
 
-    log_step "Definindo Fish como shell padrão..."
-    chsh -s /usr/bin/fish || log_warn "Falha. Execute manualmente: chsh -s /usr/bin/fish"
+    if sudo chsh -s /usr/bin/fish "$USER"; then
+        log_info "Shell alterado com sucesso!"
+    else
+        log_warn "Falha ao alterar o shell padrão"
+        FAILED_STEPS+=("chsh:fish")
+    fi
 }
 
 run_gnome_scripts() {
@@ -270,6 +277,14 @@ main() {
     setup_firewall
     setup_fish_shell
     run_gnome_scripts
+
+    if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
+        echo ""
+        log_warn "Etapas que falharam (${#FAILED_STEPS[@]}):"
+        for step in "${FAILED_STEPS[@]}"; do
+            echo "  - $step"
+        done
+    fi
 
     echo ""
     log_info "========================================="

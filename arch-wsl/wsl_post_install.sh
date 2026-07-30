@@ -203,8 +203,17 @@ setup_docker() {
 
 setup_fish_shell() {
     log_step "Configurando shell padrão para o Fish"
-    sudo chsh -s /usr/bin/fish
-    log_info "Shell alterado com sucesso!"
+
+    if ! grep -qx "/usr/bin/fish" /etc/shells; then
+        echo "/usr/bin/fish" | sudo tee -a /etc/shells >/dev/null
+    fi
+
+    if sudo chsh -s /usr/bin/fish "$USER"; then
+        log_info "Shell alterado com sucesso!"
+    else
+        log_warn "Falha ao alterar o shell padrão"
+        FAILED_STEPS+=("chsh:fish")
+    fi
 }
 
 setup_tpm() {
