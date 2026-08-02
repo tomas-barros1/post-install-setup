@@ -3,14 +3,14 @@
 WALLPAPER_DIR="$HOME/Wallpapers"
 
 if [[ ! -d "$WALLPAPER_DIR" ]]; then
-    exit 1
+  exit 1
 fi
 
 shopt -s globstar nocaseglob nullglob
 IMAGES=("$WALLPAPER_DIR"/**/*.{png,jpg,jpeg,webp})
 
 if [[ ${#IMAGES[@]} -eq 0 ]]; then
-    exit 1
+  exit 1
 fi
 
 TMP_FILE=$(mktemp)
@@ -21,7 +21,7 @@ SELECTION=$(cat "$TMP_FILE")
 rm -f "$TMP_FILE"
 
 if [[ -z "$SELECTION" || ! -f "$SELECTION" ]]; then
-    exit 0
+  exit 0
 fi
 
 pkill swaybg

@@ -3,7 +3,7 @@
 pids=$(pidof sunsetr)
 
 if [[ -n "$pids" ]]; then
-    kill $pids
+  kill $pids
 else
-    sunsetr &
+  sunsetr &
 fi

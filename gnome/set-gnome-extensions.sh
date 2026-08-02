@@ -13,7 +13,7 @@ pipx install gnome-extensions-cli --system-site-packages
 # Adicionar o caminho do pipx ao PATH temporariamente para o script não falhar
 export PATH="$PATH:$HOME/.local/bin"
 
-# 3. Desativar extensões (O Arch vem com GNOME Vanilla, 
+# 3. Desativar extensões (O Arch vem com GNOME Vanilla,
 # então as extensões do Ubuntu provavelmente não estarão lá, mas mantemos o comando com '|| true')
 gnome-extensions disable tiling-assistant@ubuntu.com || true
 gnome-extensions disable ubuntu-appindicators@ubuntu.com || true
@@ -34,23 +34,23 @@ gext install AlphabeticalAppGrid@stuarthayhurst
 
 # 6. Compilar schemas gsettings
 # No Arch, o caminho de instalação local costuma ser o mesmo.
-# Nota: Muitas extensões modernas já compilam os schemas no diretório local, 
+# Nota: Muitas extensões modernas já compilam os schemas no diretório local,
 # mas manteremos a lógica de copiar para o sistema se você prefere assim.
 
 declare -a extensions=(
-    "tactile@lundal.io"
-    "just-perfection-desktop@just-perfection"
-    "blur-my-shell@aunetx"
-    "space-bar@luchrioh"
-    "tophat@fflewddur.github.io"
-    "AlphabeticalAppGrid@stuarthayhurst"
+  "tactile@lundal.io"
+  "just-perfection-desktop@just-perfection"
+  "blur-my-shell@aunetx"
+  "space-bar@luchrioh"
+  "tophat@fflewddur.github.io"
+  "AlphabeticalAppGrid@stuarthayhurst"
 )
 
 for ext in "${extensions[@]}"; do
-    SCHEMA_PATH="$HOME/.local/share/gnome-shell/extensions/$ext/schemas/"
-    if [ -d "$SCHEMA_PATH" ]; then
-        sudo cp "$SCHEMA_PATH"*.xml /usr/share/glib-2.0/schemas/ 2>/dev/null || true
-    fi
+  SCHEMA_PATH="$HOME/.local/share/gnome-shell/extensions/$ext/schemas/"
+  if [ -d "$SCHEMA_PATH" ]; then
+    sudo cp "$SCHEMA_PATH"*.xml /usr/share/glib-2.0/schemas/ 2>/dev/null || true
+  fi
 done
 
 sudo glib-compile-schemas /usr/share/glib-2.0/schemas/
