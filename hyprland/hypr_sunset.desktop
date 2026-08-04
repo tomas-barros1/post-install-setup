@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Hyprsunset
-Comment=Alterna o filtro de luz azul (hyprsunset)
-Exec=@BIN_DIR@/hypr_sunset.sh
-Icon=hyprsunset
-Terminal=false
-Type=Application
-Categories=Utility;

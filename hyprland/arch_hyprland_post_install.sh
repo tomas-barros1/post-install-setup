@@ -182,24 +182,7 @@ DOTFILES_DIRS=(
   "walker"
   "lazy-nvim"
   "tmux"
-)
-
-# Scripts e ícone ficam no mesmo diretório do arch_post_install.sh
-LOCAL_SCRIPTS=(
-  "powermenu.sh"
-  "hypr_sunset.sh"
-  "modo-monitor.sh"
-  "modo-tv.sh"
-  "sunsetr.sh"
-  "wallpaper-select.sh"
-)
-
-LOCAL_DESKTOP_ENTRIES=(
-  "hypr_sunset.desktop"
-  "modo-monitor.desktop"
-  "modo-tv.desktop"
-  "sunsetr.desktop"
-  "wallpaper-select.desktop"
+  "scripts"
 )
 
 # =============================
@@ -528,58 +511,6 @@ setup_git() {
   git config --global merge.conflictstyle zdiff3 || true
 }
 
-install_local_scripts() {
-  local bin_dir="$HOME/.local/bin"
-
-  log_step "Instalando scripts locais (de $SCRIPT_DIR)..."
-  mkdir -p "$bin_dir"
-
-  for script in "${LOCAL_SCRIPTS[@]}"; do
-    local src="$SCRIPT_DIR/$script"
-    local dest="$bin_dir/$script"
-
-    if [[ ! -f "$src" ]]; then
-      log_warn "  ✗ $script não encontrado"
-      FAILED_STEPS+=("scripts:$script")
-    else
-      cp "$src" "$dest"
-      chmod +x "$dest"
-      log_info "  ✓ $script -> $dest"
-    fi
-  done
-}
-
-install_desktop_entries() {
-  local apps_dir="$HOME/.local/share/applications"
-  local icons_dir="$HOME/.local/share/icons"
-  local bin_dir="$HOME/.local/bin"
-
-  log_step "Instalando entradas .desktop..."
-  mkdir -p "$apps_dir" "$icons_dir"
-
-  if [[ -f "$SCRIPT_DIR/hyprsunset.png" ]]; then
-    cp "$SCRIPT_DIR/hyprsunset.png" "$icons_dir/hyprsunset.png"
-    log_info "  ✓ Ícone -> $icons_dir/hyprsunset.png"
-  else
-    log_warn "  ✗ hyprsunset.png não encontrado em $SCRIPT_DIR"
-  fi
-
-  for desktop in "${LOCAL_DESKTOP_ENTRIES[@]}"; do
-    local src="$SCRIPT_DIR/$desktop"
-    local dest="$apps_dir/$desktop"
-
-    if [[ ! -f "$src" ]]; then
-      log_warn "  ✗ $desktop não encontrado"
-      FAILED_STEPS+=("desktop:$desktop")
-    else
-      cp "$src" "$dest"
-      sed -i "s|@BIN_DIR@|$bin_dir|g" "$dest"
-      chmod +x "$dest"
-      log_info "  ✓ $desktop"
-    fi
-  done
-}
-
 setup_gaming() {
   read -r -p "Deseja configurar o setup de gaming? [s/N] " response
   case "$response" in
@@ -615,10 +546,11 @@ setup_greeter() {
   log_step "Configurando greetd greeter..."
 
   local greeter_dir="$SCRIPT_DIR/greeter"
+  [[ -d "$greeter_dir" ]] || greeter_dir="$HOME/post-install-setup/hyprland/greeter"
   local dest_dir="/etc/greetd"
 
   if [[ ! -d "$greeter_dir" ]]; then
-    log_warn "  ✗ Diretório greeter/ não encontrado em $SCRIPT_DIR"
+    log_warn "  ✗ Diretório greeter/ não encontrado"
     FAILED_STEPS+=("greeter:missing-dir")
     return 1
   fi
@@ -718,8 +650,6 @@ main() {
   setup_tpm
   setup_gsettings
   setup_mime_associations
-  install_local_scripts
-  install_desktop_entries
   setup_git
   setup_greeter
   setup_gaming
