@@ -116,10 +116,6 @@ PACMAN_PACKAGES=(
   "network-manager-applet"
   "playerctl"
   "greetd-regreet"
-
-  # Noctalia (bar, notificações, launcher, screenshots, wallpaper e nightlight)
-  "noctalia"
-  "noctalia-shell"
   "satty"
 
   # Utilitários
@@ -146,6 +142,10 @@ PACMAN_PACKAGES=(
 )
 
 AUR_PACKAGES=(
+  # Noctalia (bar, notificações, launcher, screenshots, wallpaper e nightlight)
+  "noctalia"
+  "noctalia-shell"
+
   "helium-browser-bin"
   "catppuccin-gtk-theme-mocha"
   "obsidian"
