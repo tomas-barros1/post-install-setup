@@ -123,6 +123,49 @@ setup_fish_shell() {
       FAILED_STEPS+=("fisher:install")
     fi
   fi
+
+  setup_fish_theme
+}
+
+setup_fish_theme() {
+  log_step "Configurando cores universais (Hydro, Catppuccin, FZF e Editor) no Fish..."
+
+  if command -v fish &>/dev/null; then
+    fish -c '
+      # Cores universais e exportadas do prompt Hydro (-Ux)
+      set -Ux hydro_color_pwd "#89B4FA"
+      set -Ux hydro_color_git "#CBA6F7"
+      set -Ux hydro_color_start "#A6E3A1"
+      set -Ux hydro_color_error "#F38BA8"
+      set -Ux hydro_color_prompt "#CBA6F7"
+      set -Ux hydro_color_duration "#F9E2AF"
+
+      # Opções Universais e Exportadas do FZF (-Ux)
+      set -Ux FZF_DEFAULT_OPTS "\
+--color=bg+:#313244,bg:#1E1E2E,spinner:#F5E0DC,hl:#F38BA8 \
+--color=fg:#CDD6F4,header:#F38BA8,info:#CBA6F7,pointer:#F5E0DC \
+--color=marker:#B4BEFE,fg+:#CDD6F4,prompt:#CBA6F7,hl+:#F38BA8 \
+--color=selected-bg:#45475A \
+--color=border:#6C7086,label:#CDD6F4"
+
+      set -Ux FZF_CTRL_T_OPTS "\
+--style full \
+--walker-skip .git,node_modules,target \
+--preview '\''bat -n --theme=\"Catppuccin Mocha\" --color=always {}'\'' \
+--bind '\''ctrl-/:change-preview-window(down|hidden)'\''"
+
+      # Editor Padrão Universal e Exportado (-Ux)
+      set -Ux EDITOR nvim
+      set -Ux SUDO_EDITOR nvim
+
+      # Tema Catppuccin Mocha nativo do Fish
+      fish_config theme choose "catppuccin-mocha" 2>/dev/null || true
+    ' 2>/dev/null || log_warn "Aviso ao gravar variáveis universais no Fish"
+
+    log_info "Cores Hydro, tema Catppuccin Mocha e opções FZF gravadas universalmente no Fish (set -U / set -Ux)!"
+  else
+    log_warn "Binário do fish não encontrado para gravar variáveis universais."
+  fi
 }
 
 setup_tpm() {
