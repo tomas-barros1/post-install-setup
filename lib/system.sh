@@ -130,6 +130,15 @@ setup_fish_shell() {
 setup_fish_theme() {
   log_step "Configurando cores universais (Hydro, Catppuccin, FZF e Editor) no Fish..."
 
+  local dotfiles_script="$HOME/dotfiles/fish/setup-colors.fish"
+
+  if [[ -f "$dotfiles_script" ]]; then
+    if fish "$dotfiles_script" 2>/dev/null; then
+      log_info "Cores e variáveis do Fish aplicadas com sucesso via setup-colors.fish!"
+      return 0
+    fi
+  fi
+
   if command -v fish &>/dev/null; then
     fish -c '
       # Cores universais e exportadas do prompt Hydro (-Ux)
@@ -162,7 +171,7 @@ setup_fish_theme() {
       fish_config theme choose "catppuccin-mocha" 2>/dev/null || true
     ' 2>/dev/null || log_warn "Aviso ao gravar variáveis universais no Fish"
 
-    log_info "Cores Hydro, tema Catppuccin Mocha e opções FZF gravadas universalmente no Fish (set -U / set -Ux)!"
+    log_info "Cores Hydro, tema Catppuccin Mocha e opções FZF gravadas universalmente no Fish (set -Ux)!"
   else
     log_warn "Binário do fish não encontrado para gravar variáveis universais."
   fi
