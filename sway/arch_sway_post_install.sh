@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="2.0.0"
+VERSION="2.1.0"
 LOGFILE="$HOME/post-install-$(date +%Y%m%d-%H%M%S).log"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 FAILED_PACKAGES=()
@@ -253,9 +253,26 @@ install_yay() {
   local tmp_dir
   tmp_dir=$(mktemp -d)
 
-  sudo pacman -S --needed --noconfirm git base-devel
-  git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"
-  (cd "$tmp_dir/yay" && makepkg -si --noconfirm)
+  if ! sudo pacman -S --needed --noconfirm git base-devel; then
+    log_warn "Falha ao instalar dependências de build do yay"
+    FAILED_STEPS+=("yay:base-devel")
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+
+  if ! git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"; then
+    log_warn "Falha ao clonar repositório do yay"
+    FAILED_STEPS+=("yay:clone")
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+
+  if ! (cd "$tmp_dir/yay" && makepkg -si --noconfirm); then
+    log_warn "Falha ao compilar/instalar yay"
+    FAILED_STEPS+=("yay:makepkg")
+    rm -rf "$tmp_dir"
+    return 1
+  fi
 
   rm -rf "$tmp_dir"
   log_info "yay instalado!"
@@ -269,17 +286,35 @@ setup_chaotic_aur() {
 
   log_step "Configurando Chaotic AUR..."
 
-  sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
-  sudo pacman-key --lsign-key 3056513887B78AEB
-
-  sudo pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
-  sudo pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
-
-  if ! grep -q "chaotic-aur" /etc/pacman.conf; then
-    echo -e "\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist" | sudo tee -a /etc/pacman.conf
+  if ! sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com; then
+    log_warn "Falha ao receber chave do Chaotic AUR"
+    FAILED_STEPS+=("chaotic-aur:recv-key")
+    return 1
   fi
 
-  sudo pacman -Syu --noconfirm
+  if ! sudo pacman-key --lsign-key 3056513887B78AEB; then
+    log_warn "Falha ao assinar chave do Chaotic AUR"
+    FAILED_STEPS+=("chaotic-aur:lsign-key")
+    return 1
+  fi
+
+  if ! sudo pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' ||
+     ! sudo pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'; then
+    log_warn "Falha ao instalar keyring/mirrorlist do Chaotic AUR"
+    FAILED_STEPS+=("chaotic-aur:packages")
+    return 1
+  fi
+
+  if ! grep -q "chaotic-aur" /etc/pacman.conf; then
+    echo -e "\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
+  fi
+
+  if ! sudo pacman -Syu --noconfirm; then
+    log_warn "Falha ao sincronizar pacman após adicionar Chaotic AUR"
+    FAILED_STEPS+=("chaotic-aur:sync")
+    return 1
+  fi
+
   log_info "Chaotic AUR configurado!"
 }
 
@@ -304,11 +339,20 @@ setup_dotfiles() {
 
   if [[ ! -d "$dotfiles_dir" ]]; then
     log_step "Clonando dotfiles..."
-    git clone https://github.com/tomas-barros1/dotfiles "$dotfiles_dir"
+    if ! git clone https://github.com/tomas-barros1/dotfiles "$dotfiles_dir"; then
+      log_warn "Falha ao clonar dotfiles"
+      FAILED_STEPS+=("dotfiles:clone")
+      return 1
+    fi
   else
     log_step "Atualizando dotfiles..."
-    git -C "$dotfiles_dir" pull
+    if ! git -C "$dotfiles_dir" pull; then
+      log_warn "Falha ao atualizar dotfiles"
+      FAILED_STEPS+=("dotfiles:pull")
+    fi
   fi
+
+  mkdir -p "$HOME/.local"
 
   log_step "Aplicando stow nos dotfiles..."
   cd "$dotfiles_dir"
@@ -326,17 +370,33 @@ setup_dotfiles() {
     fi
   done
 
+  if [[ -d "scripts" ]]; then
+    if ! stow --adopt scripts/; then
+      log_warn "  ✗ scripts (falha no stow --adopt)"
+      FAILED_STEPS+=("stow:scripts")
+    fi
+  else
+    log_warn "  Diretório scripts não encontrado em dotfiles"
+  fi
+
   cd - >/dev/null
 }
 
 setup_docker() {
   log_step "Configurando Docker..."
 
-  sudo systemctl enable docker.service
+  if ! sudo systemctl enable docker.service; then
+    log_warn "Falha ao habilitar docker.service"
+    FAILED_STEPS+=("docker:enable")
+  fi
 
   if ! groups "$USER" | grep -q docker; then
-    sudo usermod -aG docker "$USER"
-    log_warn "Grupo docker adicionado. FAÇA LOGOUT/LOGIN para aplicar!"
+    if sudo usermod -aG docker "$USER"; then
+      log_warn "Grupo docker adicionado. FAÇA LOGOUT/LOGIN para aplicar!"
+    else
+      log_warn "Falha ao adicionar usuário ao grupo docker"
+      FAILED_STEPS+=("docker:usermod")
+    fi
   else
     log_info "Usuário já no grupo docker"
   fi
@@ -344,8 +404,20 @@ setup_docker() {
 
 setup_firewall() {
   log_step "Configurando firewall (UFW)..."
-  sudo ufw enable
-  log_info "UFW configurado e ativado!"
+
+  if ! sudo ufw allow ssh; then
+    log_warn "Falha ao liberar SSH no UFW"
+    FAILED_STEPS+=("ufw:allow-ssh")
+  fi
+
+  if sudo ufw status | grep -qw "active"; then
+    log_info "UFW já estava ativo"
+  elif sudo ufw --force enable; then
+    log_info "UFW configurado e ativado!"
+  else
+    log_warn "Falha ao ativar UFW"
+    FAILED_STEPS+=("ufw:enable")
+  fi
 }
 
 setup_fish_shell() {
@@ -361,20 +433,54 @@ setup_fish_shell() {
     log_warn "Falha ao alterar o shell padrão"
     FAILED_STEPS+=("chsh:fish")
   fi
+
+  log_step "Instalando Fisher (plugin manager do Fish)..."
+
+  if fish -c 'functions -q fisher' 2>/dev/null; then
+    log_info "Fisher já instalado"
+  else
+    if fish -c '
+      curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
+      fisher install jorgebucaran/fisher
+    '; then
+      log_info "Fisher instalado!"
+    else
+      log_warn "Falha ao instalar Fisher"
+      FAILED_STEPS+=("fisher:install")
+    fi
+  fi
 }
 
 setup_tpm() {
   log_step "Configurando TPM (TMUX plugin manager)"
-  git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-  log_step "Tpm configurado"
+
+  if [[ -d "$HOME/.tmux/plugins/tpm" ]]; then
+    log_info "TPM já instalado"
+    return 0
+  fi
+
+  if git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"; then
+    log_info "TPM configurado!"
+  else
+    log_warn "Falha ao clonar TPM"
+    FAILED_STEPS+=("tpm:clone")
+  fi
 }
 
 setup_gsettings() {
   log_step "Configurando Gsettings"
-  gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
-  gsettings set com.github.stunkymonkey.nautilus-open-any-terminal terminal footclient
-  gsettings set org.gnome.desktop.wm.preferences button-layout ':'
-  log_step "Gsettings configurado!"
+
+  if ! command -v gsettings &>/dev/null; then
+    log_warn "gsettings não encontrado, pulando"
+    FAILED_STEPS+=("gsettings:missing-cmd")
+    return 1
+  fi
+
+  gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' || FAILED_STEPS+=("gsettings:color-scheme")
+  gsettings set com.github.stunkymonkey.nautilus-open-any-terminal terminal footclient || FAILED_STEPS+=("gsettings:nautilus-terminal")
+  gsettings set org.gnome.desktop.wm.preferences button-layout ':' || FAILED_STEPS+=("gsettings:button-layout")
+
+  log_info "Gsettings configurado!"
 }
 
 setup_mime_associations() {
@@ -483,28 +589,21 @@ setup_mime_associations() {
 setup_git() {
   log_step "Verificando configuração do Git..."
 
-  if [[ ! -f "$HOME/.gitconfig" ]]; then
-    log_warn "Nenhum .gitconfig encontrado. Configure manualmente:"
-    echo "  git config --global user.name \"tomas-barros1\""
-    echo "  git config --global user.email \"tomasabbarros3@gmail.com\""
-    echo "  git config --global init.defaultBranch main"
-    echo "  git config --global core.autocrlf input"
-    return 0
-  fi
+  read -r -p "Digite o seu nome do git: " gitUsername
+  read -r -p "Digite o seu email do git: " gitEmail
 
-  local git_user
-  git_user=$(git config --global user.name 2>/dev/null || echo "?")
-  log_info "Git já configurado (usuário: $git_user)"
+  git config --global user.name "$gitUsername"
+  git config --global user.email "$gitEmail"
 
-  git config --global core.autocrlf input || true
-  git config --global init.defaultBranch main || true
-  git config --global pull.rebase false || true
+  git config --global core.autocrlf input
+  git config --global init.defaultBranch main
+  git config --global pull.rebase false
 
-  git config --global core.pager delta || true
-  git config --global interactive.diffFilter "delta --color-only" || true
-  git config --global delta.navigate true || true
-  git config --global delta.light false || true
-  git config --global merge.conflictstyle zdiff3 || true
+  git config --global core.pager delta
+  git config --global interactive.diffFilter "delta --color-only"
+  git config --global delta.navigate true
+  git config --global delta.light false
+  git config --global merge.conflictstyle zdiff3
 }
 
 setup_gaming() {
@@ -513,13 +612,20 @@ setup_gaming() {
   [sS][iI][mM] | [sS])
     log_step "Configurando setup de gaming..."
 
-    sudo pacman -S --noconfirm --needed gamemode lact
-    yay -S --noconfirm --needed steam-devices-git
+    if ! sudo pacman -S --noconfirm --needed gamemode lact; then
+      log_warn "Falha ao instalar gamemode/lact"
+      FAILED_STEPS+=("gaming:gamemode-lact")
+    fi
 
-    flatpak install -y flathub com.valvesoftware.Steam
-    flatpak install -y flathub io.github.benjamimgois.goverlay
-    flatpak install -y flathub net.lutris.Lutris
-    flatpak install -y flathub net.davidotek.pupgui2
+    if ! yay -S --noconfirm --needed steam-devices-git; then
+      log_warn "Falha ao instalar steam-devices-git"
+      FAILED_STEPS+=("gaming:steam-devices")
+    fi
+
+    flatpak install -y flathub com.valvesoftware.Steam || FAILED_STEPS+=("gaming:steam-flatpak")
+    flatpak install -y flathub io.github.benjamimgois.goverlay || FAILED_STEPS+=("gaming:goverlay")
+    flatpak install -y flathub net.lutris.Lutris || FAILED_STEPS+=("gaming:lutris")
+    flatpak install -y flathub net.davidotek.pupgui2 || FAILED_STEPS+=("gaming:pupgui2")
 
     log_info "Setup de gaming instalado!"
     ;;
@@ -551,16 +657,24 @@ setup_greeter() {
     return 1
   fi
 
-  sudo systemctl enable greetd.service
-  log_info "  ✓ greetd.service habilitado"
+  if sudo systemctl enable greetd.service; then
+    log_info "  ✓ greetd.service habilitado"
+  else
+    log_warn "  ✗ Falha ao habilitar greetd.service"
+    FAILED_STEPS+=("greeter:enable-service")
+  fi
 
   sudo mkdir -p "$dest_dir"
 
   for file in config.toml sway.conf regreet.toml; do
     if [[ -f "$greeter_dir/$file" ]]; then
       if [[ ! -f "$dest_dir/$file" ]] || ! diff -q "$greeter_dir/$file" "$dest_dir/$file" &>/dev/null; then
-        sudo cp "$greeter_dir/$file" "$dest_dir/$file"
-        log_info "  ✓ $file -> $dest_dir/$file"
+        if sudo cp "$greeter_dir/$file" "$dest_dir/$file"; then
+          log_info "  ✓ $file -> $dest_dir/$file"
+        else
+          log_warn "  ✗ Falha ao copiar $file"
+          FAILED_STEPS+=("greeter:copy-$file")
+        fi
       else
         log_info "  ✓ $file (já atualizado)"
       fi

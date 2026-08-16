@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="2.0.0-wsl"
+VERSION="2.1.0-wsl"
 LOGFILE="$HOME/post-install-$(date +%Y%m%d-%H%M%S).log"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 FAILED_PACKAGES=()
@@ -150,9 +150,26 @@ install_yay() {
   local tmp_dir
   tmp_dir=$(mktemp -d)
 
-  sudo pacman -S --needed --noconfirm git base-devel
-  git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"
-  (cd "$tmp_dir/yay" && makepkg -si --noconfirm)
+  if ! sudo pacman -S --needed --noconfirm git base-devel; then
+    log_warn "Falha ao instalar dependências de build do yay"
+    FAILED_STEPS+=("yay:base-devel")
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+
+  if ! git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"; then
+    log_warn "Falha ao clonar repositório do yay"
+    FAILED_STEPS+=("yay:clone")
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+
+  if ! (cd "$tmp_dir/yay" && makepkg -si --noconfirm); then
+    log_warn "Falha ao compilar/instalar yay"
+    FAILED_STEPS+=("yay:makepkg")
+    rm -rf "$tmp_dir"
+    return 1
+  fi
 
   rm -rf "$tmp_dir"
   log_info "yay instalado!"
@@ -163,11 +180,20 @@ setup_dotfiles() {
 
   if [[ ! -d "$dotfiles_dir" ]]; then
     log_step "Clonando dotfiles..."
-    git clone https://github.com/tomas-barros1/dotfiles "$dotfiles_dir"
+    if ! git clone https://github.com/tomas-barros1/dotfiles "$dotfiles_dir"; then
+      log_warn "Falha ao clonar dotfiles"
+      FAILED_STEPS+=("dotfiles:clone")
+      return 1
+    fi
   else
     log_step "Atualizando dotfiles..."
-    git -C "$dotfiles_dir" pull
+    if ! git -C "$dotfiles_dir" pull; then
+      log_warn "Falha ao atualizar dotfiles"
+      FAILED_STEPS+=("dotfiles:pull")
+    fi
   fi
+
+  mkdir -p "$HOME/.local"
 
   log_step "Aplicando stow nos dotfiles..."
   cd "$dotfiles_dir"
@@ -185,17 +211,33 @@ setup_dotfiles() {
     fi
   done
 
+  if [[ -d "scripts" ]]; then
+    if ! stow --adopt scripts/; then
+      log_warn "  ✗ scripts (falha no stow --adopt)"
+      FAILED_STEPS+=("stow:scripts")
+    fi
+  else
+    log_warn "  Diretório scripts não encontrado em dotfiles"
+  fi
+
   cd - >/dev/null
 }
 
 setup_docker() {
   log_step "Configurando Docker..."
 
-  sudo systemctl enable docker.service
+  if ! sudo systemctl enable docker.service; then
+    log_warn "Falha ao habilitar docker.service"
+    FAILED_STEPS+=("docker:enable")
+  fi
 
   if ! groups "$USER" | grep -q docker; then
-    sudo usermod -aG docker "$USER"
-    log_warn "Grupo docker adicionado. FAÇA LOGOUT/LOGIN para aplicar!"
+    if sudo usermod -aG docker "$USER"; then
+      log_warn "Grupo docker adicionado. FAÇA LOGOUT/LOGIN para aplicar!"
+    else
+      log_warn "Falha ao adicionar usuário ao grupo docker"
+      FAILED_STEPS+=("docker:usermod")
+    fi
   else
     log_info "Usuário já no grupo docker"
   fi
@@ -214,39 +256,58 @@ setup_fish_shell() {
     log_warn "Falha ao alterar o shell padrão"
     FAILED_STEPS+=("chsh:fish")
   fi
+
+  log_step "Instalando Fisher (plugin manager do Fish)..."
+
+  if fish -c 'functions -q fisher' 2>/dev/null; then
+    log_info "Fisher já instalado"
+  else
+    if fish -c '
+      curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
+      fisher install jorgebucaran/fisher
+    '; then
+      log_info "Fisher instalado!"
+    else
+      log_warn "Falha ao instalar Fisher"
+      FAILED_STEPS+=("fisher:install")
+    fi
+  fi
 }
 
 setup_tpm() {
   log_step "Configurando TPM (TMUX plugin manager)"
-  git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-  log_step "Tpm configurado"
+
+  if [[ -d "$HOME/.tmux/plugins/tpm" ]]; then
+    log_info "TPM já instalado"
+    return 0
+  fi
+
+  if git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"; then
+    log_info "TPM configurado!"
+  else
+    log_warn "Falha ao clonar TPM"
+    FAILED_STEPS+=("tpm:clone")
+  fi
 }
 
 setup_git() {
   log_step "Verificando configuração do Git..."
 
-  if [[ ! -f "$HOME/.gitconfig" ]]; then
-    log_warn "Nenhum .gitconfig encontrado. Configure manualmente:"
-    echo "  git config --global user.name \"tomas-barros1\""
-    echo "  git config --global user.email \"tomasabbarros3@gmail.com\""
-    echo "  git config --global init.defaultBranch main"
-    echo "  git config --global core.autocrlf input"
-    return 0
-  fi
+  read -r -p "Digite o seu nome do git: " gitUsername
+  read -r -p "Digite o seu email do git: " gitEmail
 
-  local git_user
-  git_user=$(git config --global user.name 2>/dev/null || echo "?")
-  log_info "Git já configurado (usuário: $git_user)"
+  git config --global user.name "$gitUsername"
+  git config --global user.email "$gitEmail"
 
-  git config --global core.autocrlf input || true
-  git config --global init.defaultBranch main || true
-  git config --global pull.rebase false || true
+  git config --global core.autocrlf input
+  git config --global init.defaultBranch main
+  git config --global pull.rebase false
 
-  git config --global core.pager delta || true
-  git config --global interactive.diffFilter "delta --color-only" || true
-  git config --global delta.navigate true || true
-  git config --global delta.light false || true
-  git config --global merge.conflictstyle zdiff3 || true
+  git config --global core.pager delta
+  git config --global interactive.diffFilter "delta --color-only"
+  git config --global delta.navigate true
+  git config --global delta.light false
+  git config --global merge.conflictstyle zdiff3
 }
 
 cleanup_yay() {
@@ -269,7 +330,7 @@ print_summary() {
   if [[ ${#FAILED_PACKAGES[@]} -gt 0 || ${#FAILED_STEPS[@]} -gt 0 ]]; then
     log_warn "Instalação concluída com avisos."
   else
-    log_info "Instalação concluída com sucesso!"
+    log_info "✨ Instalação concluída com sucesso! ✨"
   fi
 
   log_info "========================================="
@@ -293,8 +354,9 @@ print_summary() {
   echo ""
   log_warn "Próximos passos:"
   echo "  1. Faça LOGOUT e LOGIN para aplicar o grupo docker"
-  echo "  2. Reinicie o terminal para ativar Fish"
-  echo "  3. No tmux, pressione <prefix> + I para instalar plugins via TPM"
+  echo "  2. Reinicie o terminal para ativar Fish e Mise"
+  echo "  3. Execute 'mise doctor' para verificar runtimes"
+  echo "  4. No tmux, pressione <prefix> + I para instalar plugins via TPM"
   echo ""
   log_info "Log salvo em: $LOGFILE"
   echo ""
