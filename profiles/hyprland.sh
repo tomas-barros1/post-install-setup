@@ -26,7 +26,6 @@ EXTRA_PACMAN_PACKAGES=(
   "wdisplays"
   "wlr-randr"
   "network-manager-applet"
-  "networkmanager"
   "playerctl"
   "greetd-regreet"
   "foot"

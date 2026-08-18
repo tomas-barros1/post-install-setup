@@ -94,6 +94,39 @@ setup_firewall() {
   fi
 }
 
+setup_network() {
+  log_step "Configurando e otimizando rede (NetworkManager + iwd)..."
+
+  # Desativar e mascarar completamente o systemd-networkd para evitar conflitos
+  for service in systemd-networkd systemd-networkd.socket systemd-networkd-wait-online; do
+    sudo systemctl stop "$service" 2>/dev/null || true
+    sudo systemctl disable "$service" 2>/dev/null || true
+    sudo systemctl mask "$service" 2>/dev/null || true
+  done
+
+  # Configurar NetworkManager para usar iwd como backend de Wi-Fi
+  sudo mkdir -p /etc/NetworkManager/conf.d
+  if [[ ! -f /etc/NetworkManager/conf.d/iwd.conf ]]; then
+    echo -e "[device]\nwifi.backend=iwd" | sudo tee /etc/NetworkManager/conf.d/iwd.conf >/dev/null
+    log_info "  ✓ Backend Wi-Fi configurado para iwd (/etc/NetworkManager/conf.d/iwd.conf)"
+  fi
+
+  # Habilitar e iniciar serviços de rede corretos
+  if sudo systemctl enable --now iwd.service 2>/dev/null; then
+    log_info "  ✓ iwd.service habilitado e iniciado"
+  else
+    log_warn "  ✗ Falha ao habilitar iwd.service"
+    FAILED_STEPS+=("network:enable-iwd")
+  fi
+
+  if sudo systemctl enable NetworkManager.service 2>/dev/null; then
+    log_info "  ✓ NetworkManager.service habilitado"
+  else
+    log_warn "  ✗ Falha ao habilitar NetworkManager.service"
+    FAILED_STEPS+=("network:enable-networkmanager")
+  fi
+}
+
 setup_fish_shell() {
   log_step "Configurando Fish como shell padrão..."
 

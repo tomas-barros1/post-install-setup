@@ -155,38 +155,37 @@ main() {
 
   # 10. Serviços base
   setup_docker
+  if [[ "${HAS_DESKTOP_MODULES:-false}" == "true" ]]; then
+    setup_network
+    setup_firewall
+  fi
   setup_fish_shell
   setup_tpm
 
-  # 11. Firewall
-  if [[ "${HAS_DESKTOP_MODULES:-false}" == "true" ]]; then
-    setup_firewall
-  fi
-
-  # 12. Git
+  # 11. Git
   if [[ "$configure_git" == "true" ]]; then
     setup_git
   fi
 
-  # 13. Greeter
+  # 12. Greeter
   if [[ -n "${HAS_GREETER:-}" ]]; then
     setup_greeter "$HAS_GREETER"
   fi
 
-  # 14. Gaming
+  # 13. Gaming
   if [[ "$enable_gaming" == "true" ]]; then
     setup_gaming
   fi
 
-  # 15. Pós-instalação específica do perfil
+  # 14. Pós-instalação específica do perfil
   if declare -f profile_post_install >/dev/null; then
     profile_post_install
   fi
 
-  # 16. Limpeza
+  # 15. Limpeza
   cleanup_yay
 
-  # 17. Resumo final
+  # 16. Resumo final
   print_summary "$PROFILE_NAME"
 }
 

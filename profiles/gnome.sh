@@ -33,6 +33,9 @@ EXTRA_PACMAN_PACKAGES=(
   "flatpak"
 
   # Utilitários
+  "networkmanager"
+  "iwd"
+  "wireless-regdb"
   "gnome-keyring"
   "libsecret"
   "wl-clipboard"
