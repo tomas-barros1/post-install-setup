@@ -33,6 +33,8 @@ EXTRA_PACMAN_PACKAGES=(
   "flatpak"
 
   # Utilitários
+  "gnome-keyring"
+  "libsecret"
   "wl-clipboard"
   "ufw"
   "ddcutil"
