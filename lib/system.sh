@@ -370,10 +370,10 @@ setup_gaming() {
 
   log_step "Instalando ferramentas e pacotes de gaming via pacman (Steam, Vulkan Radeon, GameMode, LACT, GOverlay)..."
   local gaming_pacman_pkgs=(
-    "steam"
     "vulkan-radeon"
     "lib32-vulkan-radeon"
     "gamemode"
+    "steam"
     "lact"
     "goverlay"
   )
@@ -386,10 +386,6 @@ setup_gaming() {
         FAILED_STEPS+=("gaming:$pkg")
       fi
     done
-  fi
-
-  if command -v yay &>/dev/null; then
-    yay -S --noconfirm --needed steam-devices-git 2>/dev/null || FAILED_STEPS+=("gaming:steam-devices")
   fi
 
   if command -v flatpak &>/dev/null; then
