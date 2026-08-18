@@ -365,42 +365,38 @@ setup_greeter() {
 }
 
 setup_gaming() {
-  local should_install=false
+  log_step "Configurando suporte a multilib e drivers de gaming..."
+  setup_multilib
 
-  if command -v gum &>/dev/null; then
-    if gum confirm "Deseja configurar o setup de gaming (Steam, Lutris, GameMode, LACT, GOverlay)?"; then
-      should_install=true
-    fi
-  else
-    read -r -p "Deseja configurar o setup de gaming? [s/N] " response
-    case "$response" in
-      [sS][iI][mM] | [sS]) should_install=true ;;
-      *) should_install=false ;;
-    esac
+  log_step "Instalando ferramentas e pacotes de gaming via pacman (Steam, Vulkan Radeon, GameMode, LACT, GOverlay)..."
+  local gaming_pacman_pkgs=(
+    "steam"
+    "vulkan-radeon"
+    "lib32-vulkan-radeon"
+    "gamemode"
+    "lact"
+    "goverlay"
+  )
+
+  if ! sudo pacman -S --noconfirm --needed "${gaming_pacman_pkgs[@]}"; then
+    log_warn "Falha na instalação em lote de gaming pelo pacman. Tentando pacote por pacote..."
+    for pkg in "${gaming_pacman_pkgs[@]}"; do
+      if ! sudo pacman -S --noconfirm --needed "$pkg" 2>/dev/null; then
+        log_warn "Falha ao instalar: $pkg"
+        FAILED_STEPS+=("gaming:$pkg")
+      fi
+    done
   fi
 
-  if [[ "$should_install" == "true" ]]; then
-    log_step "Instalando ferramentas e pacotes de gaming..."
-
-    if ! sudo pacman -S --noconfirm --needed gamemode lact 2>/dev/null; then
-      log_warn "Falha ao instalar gamemode / lact via pacman"
-      FAILED_STEPS+=("gaming:gamemode-lact")
-    fi
-
-    if command -v yay &>/dev/null; then
-      yay -S --noconfirm --needed steam-devices-git 2>/dev/null || FAILED_STEPS+=("gaming:steam-devices")
-    fi
-
-    if command -v flatpak &>/dev/null; then
-      flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
-      flatpak install -y flathub com.valvesoftware.Steam 2>/dev/null || FAILED_STEPS+=("gaming:steam-flatpak")
-      flatpak install -y flathub io.github.benjamimgois.goverlay 2>/dev/null || FAILED_STEPS+=("gaming:goverlay")
-      flatpak install -y flathub net.lutris.Lutris 2>/dev/null || FAILED_STEPS+=("gaming:lutris")
-      flatpak install -y flathub net.davidotek.pupgui2 2>/dev/null || FAILED_STEPS+=("gaming:pupgui2")
-    fi
-
-    log_info "Setup de gaming concluído!"
-  else
-    log_info "Setup de gaming pulado."
+  if command -v yay &>/dev/null; then
+    yay -S --noconfirm --needed steam-devices-git 2>/dev/null || FAILED_STEPS+=("gaming:steam-devices")
   fi
+
+  if command -v flatpak &>/dev/null; then
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
+    flatpak install -y flathub net.lutris.Lutris 2>/dev/null || FAILED_STEPS+=("gaming:lutris")
+    flatpak install -y flathub net.davidotek.pupgui2 2>/dev/null || FAILED_STEPS+=("gaming:pupgui2")
+  fi
+
+  log_info "Setup de gaming concluído!"
 }

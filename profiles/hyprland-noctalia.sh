@@ -33,17 +33,17 @@ EXTRA_PACMAN_PACKAGES=(
   "fcitx5-configtool"
   "fcitx5-gtk"
   "fcitx5-qt"
+
+  # Noctalia Core (Official Extra)
+  "noctalia"
 )
 
 EXTRA_AUR_PACKAGES=(
-  # Noctalia Suite
-  "noctalia"
-  "noctalia-shell"
-
-  # Apps & Theming
+  # Apps & Theming (Chaotic AUR / AUR)
   "helium-browser-bin"
-  "qt5ct-kde"
   "qt6ct-kde"
+  "noctalia-shell"
+  "qt5ct-kde"
   "nautilus-open-any-terminal-git"
 )
 

@@ -95,9 +95,11 @@ main() {
   local enable_gaming=false
   if [[ "${HAS_GAMING:-false}" == "true" ]]; then
     if command -v gum &>/dev/null; then
-      if gum confirm "Deseja instalar o setup de Jogos (Steam, Lutris, GameMode, LACT, GOverlay)?"; then
+      if gum confirm "Deseja instalar o setup de Jogos (Steam, Vulkan Radeon, Lutris, GameMode, LACT, GOverlay)?"; then
         enable_gaming=true
       fi
+    else
+      enable_gaming=true
     fi
   fi
 
@@ -130,18 +132,18 @@ main() {
 
   log_banner "Executando: $PROFILE_NAME"
 
-  # 5. Pacotes oficiais (Pacman)
-  install_pacman_packages "${PACMAN_PACKAGES[@]}"
-
-  # 6. AUR Helper (yay)
-  install_yay
-
-  # 7. Chaotic AUR
+  # 5. Chaotic AUR (se selecionado, habilita antes para que o pacman use os binários pré-compilados)
   if [[ "$enable_chaotic" == "true" ]]; then
     setup_chaotic_aur
   fi
 
-  # 8. Pacotes do AUR
+  # 6. Pacotes oficiais e Chaotic AUR (Pacman)
+  install_pacman_packages "${PACMAN_PACKAGES[@]}"
+
+  # 7. AUR Helper (yay)
+  install_yay
+
+  # 8. Pacotes do AUR (com priorização automática de binários do Chaotic AUR)
   if [[ ${#AUR_PACKAGES[@]} -gt 0 ]]; then
     install_aur_packages "${AUR_PACKAGES[@]}"
   fi
@@ -173,24 +175,7 @@ main() {
 
   # 14. Gaming
   if [[ "$enable_gaming" == "true" ]]; then
-    log_step "Instalando ferramentas e pacotes de gaming..."
-    if ! sudo pacman -S --noconfirm --needed gamemode lact 2>/dev/null; then
-      log_warn "Falha ao instalar gamemode / lact via pacman"
-      FAILED_STEPS+=("gaming:gamemode-lact")
-    fi
-
-    if command -v yay &>/dev/null; then
-      yay -S --noconfirm --needed steam-devices-git 2>/dev/null || FAILED_STEPS+=("gaming:steam-devices")
-    fi
-
-    if command -v flatpak &>/dev/null; then
-      flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
-      flatpak install -y flathub com.valvesoftware.Steam 2>/dev/null || FAILED_STEPS+=("gaming:steam-flatpak")
-      flatpak install -y flathub io.github.benjamimgois.goverlay 2>/dev/null || FAILED_STEPS+=("gaming:goverlay")
-      flatpak install -y flathub net.lutris.Lutris 2>/dev/null || FAILED_STEPS+=("gaming:lutris")
-      flatpak install -y flathub net.davidotek.pupgui2 2>/dev/null || FAILED_STEPS+=("gaming:pupgui2")
-    fi
-    log_info "Setup de gaming concluído!"
+    setup_gaming
   fi
 
   # 15. Pós-instalação específica do perfil

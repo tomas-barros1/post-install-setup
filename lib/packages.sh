@@ -104,9 +104,63 @@ setup_chaotic_aur() {
   log_info "Chaotic AUR configurado com sucesso!"
 }
 
+setup_multilib() {
+  if grep -q "^\[multilib\]" /etc/pacman.conf 2>/dev/null; then
+    log_info "Repositório multilib já está habilitado"
+    return 0
+  fi
+
+  log_step "Habilitando repositório multilib no pacman.conf..."
+
+  if grep -q "^#\[multilib\]" /etc/pacman.conf 2>/dev/null; then
+    sudo sed -i '/^#\[multilib\]/{s/^#//;n;s/^#//}' /etc/pacman.conf
+  else
+    echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
+  fi
+
+  log_step "Atualizando base de dados do pacman com multilib..."
+  if ! sudo pacman -Syu --noconfirm; then
+    log_warn "Falha ao sincronizar pacman após habilitar multilib"
+    FAILED_STEPS+=("multilib:sync")
+    return 1
+  fi
+
+  log_info "Repositório multilib habilitado com sucesso!"
+}
+
 install_aur_packages() {
   local packages=("$@")
   if [[ ${#packages[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  local to_pacman=()
+  local to_aur=()
+
+  # Se o pacote existir em qualquer repositório do Pacman (Core, Extra, Multilib, Chaotic-AUR), usa pacman diretamente
+  for pkg in "${packages[@]}"; do
+    if pacman -Si "$pkg" &>/dev/null; then
+      to_pacman+=("$pkg")
+    else
+      to_aur+=("$pkg")
+    fi
+  done
+
+  if [[ ${#to_pacman[@]} -gt 0 ]]; then
+    log_step "Instalando pacotes disponíveis em repositórios binários / Chaotic AUR (${#to_pacman[@]} pacotes)..."
+    if ! sudo pacman -S --noconfirm --needed "${to_pacman[@]}"; then
+      log_warn "Falha na instalação em lote via pacman. Tentando pacote por pacote..."
+      for pkg in "${to_pacman[@]}"; do
+        if ! sudo pacman -S --noconfirm --needed "$pkg" 2>/dev/null; then
+          log_warn "Falha ao instalar via pacman: $pkg. Adicionando ao fallback do AUR..."
+          to_aur+=("$pkg")
+        fi
+      done
+    fi
+  fi
+
+  if [[ ${#to_aur[@]} -eq 0 ]]; then
+    log_info "Todos os pacotes foram instalados via binários pré-compilados do Pacman/Chaotic AUR!"
     return 0
   fi
 
@@ -116,11 +170,11 @@ install_aur_packages() {
     return 1
   fi
 
-  log_step "Instalando pacotes do AUR via yay (${#packages[@]} pacotes)..."
+  log_step "Instalando pacotes restantes exclusivamente do AUR via yay (${#to_aur[@]} pacotes)..."
 
-  if ! yay -S --noconfirm --needed "${packages[@]}"; then
+  if ! yay -S --noconfirm --needed "${to_aur[@]}"; then
     log_warn "Falha na instalação em lote do AUR. Tentando pacote por pacote..."
-    for pkg in "${packages[@]}"; do
+    for pkg in "${to_aur[@]}"; do
       if ! yay -S --noconfirm --needed "$pkg"; then
         log_warn "Falha ao instalar pacote AUR: $pkg"
         FAILED_PACKAGES+=("$pkg (aur)")

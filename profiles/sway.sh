@@ -39,6 +39,7 @@ EXTRA_PACMAN_PACKAGES=(
 
 EXTRA_AUR_PACKAGES=(
   "helium-browser-bin"
+  "qt6ct-kde"
   "walker-bin"
   "elephant-bin"
   "elephant-clipboard-bin"
@@ -51,7 +52,6 @@ EXTRA_AUR_PACKAGES=(
   "elephant-todo-bin"
   "elephant-websearch-bin"
   "qt5ct-kde"
-  "qt6ct-kde"
   "polkit-gnome-git"
   "waybar-weather"
   "nautilus-open-any-terminal-git"

@@ -41,13 +41,15 @@ EXTRA_PACMAN_PACKAGES=(
   "ntfsprogs"
   "qt5-wayland"
   "qt6-wayland"
+
+  # Aplicações Oficiais
+  "obsidian"
 )
 
 EXTRA_AUR_PACKAGES=(
   "brave-bin"
-  "catppuccin-gtk-theme-mocha"
-  "obsidian"
   "visual-studio-code-bin"
+  "catppuccin-gtk-theme-mocha"
 )
 
 PACMAN_PACKAGES=("${BASE_PACMAN_PACKAGES[@]}" "${EXTRA_PACMAN_PACKAGES[@]}")

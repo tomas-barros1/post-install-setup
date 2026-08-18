@@ -37,6 +37,8 @@ EXTRA_PACMAN_PACKAGES=(
 
 EXTRA_AUR_PACKAGES=(
   "helium-browser-bin"
+  "qt6ct-kde"
+  "ttf-ms-fonts"
   "walker-bin"
   "elephant-bin"
   "elephant-clipboard-bin"
@@ -49,12 +51,10 @@ EXTRA_AUR_PACKAGES=(
   "elephant-todo-bin"
   "elephant-websearch-bin"
   "qt5ct-kde"
-  "qt6ct-kde"
   "polkit-gnome-git"
   "sunsetr-bin"
   "waybar-weather"
   "nautilus-open-any-terminal-git"
-  "ttf-ms-fonts"
 )
 
 PACMAN_PACKAGES=("${BASE_PACMAN_PACKAGES[@]}" "${DESKTOP_PACMAN_PACKAGES[@]}" "${EXTRA_PACMAN_PACKAGES[@]}")

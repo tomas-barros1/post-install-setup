@@ -31,7 +31,7 @@ Ao rodar `./install.sh`, o script:
    - **Arch WSL**: Ambiente Arch WSL focado em ferramentas de desenvolvimento CLI
 3. Pergunta interativamente (com confirmação visual):
    - Se deseja habilitar o **Chaotic AUR** (binários pré-compilados do AUR).
-   - Se deseja instalar o setup de **Jogos** (Steam, Lutris, GameMode, LACT, GOverlay).
+   - Se deseja instalar o setup de **Jogos** (Steam nativo via Pacman + Multilib, Vulkan Radeon, Lutris, GameMode, LACT, GOverlay).
    - Se deseja configurar o seu **perfil do Git** (Nome, E-mail e Delta pager).
 4. Mostra uma caixa de confirmação estilizada antes de iniciar o processo.
 
