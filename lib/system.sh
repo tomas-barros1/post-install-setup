@@ -394,6 +394,11 @@ setup_greeter() {
     fi
   done
 
+  # Ajustar usuário da sessão inicial automaticamente para o usuário atual
+  if [[ -f "$dest_dir/config.toml" ]]; then
+    sudo sed -i -e "/^\[initial_session\]/,/^user =/ s/user = .*/user = \"$USER\"/" "$dest_dir/config.toml"
+  fi
+
   log_info "Greeter configurado com sucesso!"
 }
 

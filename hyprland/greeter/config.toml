@@ -6,5 +6,5 @@ command = "dbus-run-session start-hyprland -- -c /etc/greetd/hyprland.lua"
 user = "greeter"
 
 [initial_session]
-command = "dbus-run-session start-hyprland"
+command = "uwsm start hyprland-uwsm.desktop"
 user = "tom"
