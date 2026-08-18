@@ -8,6 +8,21 @@ Scripts automatizados e modulares de pós-instalação para **Arch Linux** (Wayl
 
 No Arch Linux, o instalador é **totalmente interativo**. Não precisa passar flags nem decorar comandos complexos: basta rodar o script e escolher as opções na interface de terminal visual do **`gum`**.
 
+### 💿 Guia do `archinstall` (Recomendações na Instalação Base)
+
+Caso você instale o Arch Linux utilizando o instalador oficial **`archinstall`**, siga estas orientações para garantir uma base limpa:
+
+- **Type / Profile:** Escolha **`Minimal`** (se for usar Hyprland, Sway ou Noctalia via este script) ou **`Desktop`** (se for usar GNOME).
+- **Network Configuration (Rede) — ⚠️ MUITO IMPORTANTE:**
+  - Selecione **`NetworkManager`**.
+  - ❌ **NUNCA escolha *"Copy ISO configuration"***: essa opção copia as regras temporárias do `systemd-networkd` da ISO, causando conflitos crônicos de sysctl, DNS e disputa de interface com o NetworkManager.
+- **Audio Server:** Selecione **`Pipewire`**.
+- **Driver Gráfico:** Escolha o driver correspondente ao seu hardware (ex: `AMD / ATI (open-source)`, `Intel` ou `Nvidia`).
+- **Additional Packages:** Adicione pelo menos **`git`** e **`curl`**.
+- **User Account:** Crie seu usuário e adicione-o como **sudo / wheel**.
+
+---
+
 ### 1. Clonar e Executar
 
 ```bash
