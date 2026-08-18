@@ -44,8 +44,8 @@ install_yay() {
   fi
 
   # Preferir yay-bin se disponível para compilação instantânea
-  if git clone https://aur.archlinux.org/yay-bin.git "$tmp_dir/yay" 2>/dev/null || \
-     git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"; then
+  if git clone https://aur.archlinux.org/yay-bin.git "$tmp_dir/yay" 2>/dev/null ||
+    git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"; then
     if (cd "$tmp_dir/yay" && makepkg -si --noconfirm); then
       log_info "yay instalado com sucesso!"
     else
@@ -84,8 +84,8 @@ setup_chaotic_aur() {
     return 1
   fi
 
-  if ! sudo pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' || \
-     ! sudo pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'; then
+  if ! sudo pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' ||
+    ! sudo pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'; then
     log_warn "Falha ao instalar keyring/mirrorlist do Chaotic AUR"
     FAILED_STEPS+=("chaotic-aur:packages")
     return 1

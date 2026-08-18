@@ -35,7 +35,7 @@ select_profile_interactive() {
     PS3="Digite o número da opção: "
     select opt in "hyprland" "hyprland-noctalia" "gnome" "sway" "wsl" "Sair"; do
       case "$opt" in
-        "hyprland"|"hyprland-noctalia"|"gnome"|"sway"|"wsl")
+        "hyprland" | "hyprland-noctalia" | "gnome" | "sway" | "wsl")
           SELECTED_PROFILE="$opt"
           break
           ;;

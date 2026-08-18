@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 # Make alacritty default terminal emulator
 if command -v update-alternatives &>/dev/null; then
