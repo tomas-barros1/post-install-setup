@@ -28,6 +28,8 @@ EXTRA_PACMAN_PACKAGES=(
   # Aplicações
   "gimp"
   "gnome-calculator"
+  "celluloid"
+  "file-roller"
   "libreoffice-fresh"
   "qbittorrent"
   "flatpak"
