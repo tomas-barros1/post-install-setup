@@ -64,6 +64,7 @@ DOTFILES_DIRS=(
   "fish"
   "zed"
   "hypr"
+  "uwsm"
   "swaync"
   "waybar-hyprland"
   "walker"

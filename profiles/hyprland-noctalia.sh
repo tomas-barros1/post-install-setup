@@ -55,6 +55,7 @@ DOTFILES_DIRS=(
   "zed"
   "hyprland-noctalia"
   "noctalia-shell"
+  "uwsm"
   "lazy-nvim"
   "tmux"
   "scripts"

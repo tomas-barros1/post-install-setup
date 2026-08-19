@@ -65,6 +65,7 @@ DOTFILES_DIRS=(
   "nvim"
   "zed"
   "sway"
+  "uwsm"
   "swaync"
   "waybar-sway"
   "walker"
