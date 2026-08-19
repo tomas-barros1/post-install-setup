@@ -31,6 +31,7 @@ EXTRA_PACMAN_PACKAGES=(
   "celluloid"
   "file-roller"
   "libreoffice-fresh"
+  "libreoffice-fresh-pt-br"
   "qbittorrent"
   "flatpak"
 
