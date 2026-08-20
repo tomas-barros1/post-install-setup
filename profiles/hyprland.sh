@@ -53,6 +53,7 @@ DOTFILES_DIRS=(
   "lazy-nvim"
   "tmux"
   "scripts"
+  "btop"
 )
 
 HAS_GREETER="hyprland"

@@ -47,6 +47,7 @@ DOTFILES_DIRS=(
   "walker"
   "tmux"
   "scripts"
+  "btop"
 )
 
 HAS_GREETER="sway"

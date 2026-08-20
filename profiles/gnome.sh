@@ -35,6 +35,7 @@ DOTFILES_DIRS=(
   "zellij"
   "astro-nvim"
   "scripts"
+  "btop"
 )
 
 HAS_GREETER=""
