@@ -9,55 +9,37 @@ PROFILE_DESCRIPTION="Sessão Wayland moderna com Hyprland, Waybar, Walker e Regr
 # Carregar bases
 source "$REPO_ROOT/profiles/base.env"
 source "$REPO_ROOT/profiles/desktop.env"
+source "$REPO_ROOT/profiles/wayland-wm.env"
 
 EXTRA_PACMAN_PACKAGES=(
-  # Hyprland e Wayland
+  # Hyprland Core
   "hyprland"
   "uwsm"
-  "xdg-desktop-portal"
   "xdg-desktop-portal-hyprland"
-  "swaybg"
-  "flameshot"
   "hyprshot"
   "hyprsunset"
-  "swaync"
-  "waybar"
-  "nwg-look"
-  "wdisplays"
-  "wlr-randr"
-  "network-manager-applet"
-  "playerctl"
-  "greetd-regreet"
-  "foot"
-  "fcitx5"
-  "grim"
-  "slurp"
 )
 
 EXTRA_AUR_PACKAGES=(
-  "helium-browser-bin"
-  "qt6ct-kde"
   "ttf-ms-fonts"
-  "walker-bin"
-  "elephant-bin"
-  "elephant-clipboard-bin"
-  "elephant-desktopapplications-bin"
-  "elephant-providerlist-bin"
-  "elephant-runner-bin"
-  "elephant-archlinuxpkgs-bin"
-  "elephant-calc-bin"
-  "elephant-symbols-bin"
-  "elephant-todo-bin"
-  "elephant-websearch-bin"
-  "qt5ct-kde"
-  "polkit-gnome-git"
   "sunsetr-bin"
-  "waybar-weather"
-  "nautilus-open-any-terminal-git"
 )
 
-PACMAN_PACKAGES=("${BASE_PACMAN_PACKAGES[@]}" "${DESKTOP_PACMAN_PACKAGES[@]}" "${EXTRA_PACMAN_PACKAGES[@]}")
-AUR_PACKAGES=("${DESKTOP_AUR_PACKAGES[@]}" "${EXTRA_AUR_PACKAGES[@]}")
+PACMAN_PACKAGES=(
+  "${BASE_PACMAN_PACKAGES[@]}"
+  "${DESKTOP_PACMAN_PACKAGES[@]}"
+  "${WAYLAND_WM_PACMAN_PACKAGES[@]}"
+  "${WAYBAR_SWAYNC_PACMAN_PACKAGES[@]}"
+  "${EXTRA_PACMAN_PACKAGES[@]}"
+)
+
+AUR_PACKAGES=(
+  "${DESKTOP_AUR_PACKAGES[@]}"
+  "${WAYLAND_WM_AUR_PACKAGES[@]}"
+  "${WALKER_AUR_PACKAGES[@]}"
+  "${WAYBAR_SWAYNC_AUR_PACKAGES[@]}"
+  "${EXTRA_AUR_PACKAGES[@]}"
+)
 
 DOTFILES_DIRS=(
   "foot"
@@ -79,6 +61,5 @@ HAS_DESKTOP_MODULES=true
 HAS_GAMING=true
 
 profile_post_install() {
-  setup_gsettings "footclient"
-  setup_mime_associations "helium.desktop" "org.gnome.TextEditor.desktop" "org.gnome.Loupe.desktop"
+  default_wayland_post_install
 }

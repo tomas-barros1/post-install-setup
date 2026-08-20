@@ -9,45 +9,33 @@ PROFILE_DESCRIPTION="Sessão Hyprland integrada com a suíte Noctalia Shell"
 # Carregar bases
 source "$REPO_ROOT/profiles/base.env"
 source "$REPO_ROOT/profiles/desktop.env"
+source "$REPO_ROOT/profiles/wayland-wm.env"
 
 EXTRA_PACMAN_PACKAGES=(
-  # Hyprland Core
+  # Hyprland & Noctalia Core
   "hyprland"
   "uwsm"
-  "xdg-desktop-portal"
   "xdg-desktop-portal-hyprland"
-  "nwg-look"
-  "wdisplays"
-  "wlr-randr"
-  "network-manager-applet"
-  "playerctl"
-  "greetd-regreet"
   "satty"
-  "grim"
-  "slurp"
-  "foot"
-
-  # Input Method
-  "fcitx5"
-  "fcitx5-configtool"
-  "fcitx5-gtk"
-  "fcitx5-qt"
-
-  # Noctalia Core (Official Extra)
   "noctalia"
 )
 
 EXTRA_AUR_PACKAGES=(
-  # Apps & Theming (Chaotic AUR / AUR)
-  "helium-browser-bin"
-  "qt6ct-kde"
   "noctalia-shell"
-  "qt5ct-kde"
-  "nautilus-open-any-terminal-git"
 )
 
-PACMAN_PACKAGES=("${BASE_PACMAN_PACKAGES[@]}" "${DESKTOP_PACMAN_PACKAGES[@]}" "${EXTRA_PACMAN_PACKAGES[@]}")
-AUR_PACKAGES=("${DESKTOP_AUR_PACKAGES[@]}" "${EXTRA_AUR_PACKAGES[@]}")
+PACMAN_PACKAGES=(
+  "${BASE_PACMAN_PACKAGES[@]}"
+  "${DESKTOP_PACMAN_PACKAGES[@]}"
+  "${WAYLAND_WM_PACMAN_PACKAGES[@]}"
+  "${EXTRA_PACMAN_PACKAGES[@]}"
+)
+
+AUR_PACKAGES=(
+  "${DESKTOP_AUR_PACKAGES[@]}"
+  "${WAYLAND_WM_AUR_PACKAGES[@]}"
+  "${EXTRA_AUR_PACKAGES[@]}"
+)
 
 DOTFILES_DIRS=(
   "foot"
@@ -67,6 +55,5 @@ HAS_DESKTOP_MODULES=true
 HAS_GAMING=true
 
 profile_post_install() {
-  setup_gsettings "footclient"
-  setup_mime_associations "helium.desktop" "org.gnome.TextEditor.desktop" "org.gnome.Loupe.desktop"
+  default_wayland_post_install
 }

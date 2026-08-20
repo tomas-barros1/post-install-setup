@@ -108,6 +108,7 @@ post-install-setup/
 ├── profiles/                      # Definições de pacotes por ambiente
 │   ├── base.env                   # Pacotes CLI universais
 │   ├── desktop.env                # Pacotes GUI compartilhados
+│   ├── wayland-wm.env             # Stack compartilhado de WMs Wayland (Fcitx, Foot, Walker, etc.)
 │   ├── hyprland.sh                # Perfil Hyprland padrão
 │   ├── hyprland-noctalia.sh       # Perfil Hyprland com Noctalia
 │   ├── gnome.sh                   # Perfil GNOME Desktop

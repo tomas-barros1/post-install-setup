@@ -6,62 +6,26 @@
 PROFILE_NAME="GNOME"
 PROFILE_DESCRIPTION="Ambiente Desktop GNOME com extensões, atalhos e Alacritty"
 
-# Carregar base CLI
+# Carregar bases
 source "$REPO_ROOT/profiles/base.env"
+source "$REPO_ROOT/profiles/desktop.env"
 
 EXTRA_PACMAN_PACKAGES=(
-  # Tema de ícones
-  "tela-circle-icon-theme-purple"
-
-  # Terminal & CLI
+  # Terminal & CLI específicos do GNOME
   "alacritty"
   "zellij"
 
-  # Fontes
-  "ttf-cascadia-code-nerd"
+  # Fontes adicionais
   "ttf-meslo-nerd"
-  "ttf-jetbrains-mono"
-  "inter-font"
   "ttf-0xproto-nerd"
-  "noto-fonts"
-
-  # Aplicações
-  "gimp"
-  "gnome-calculator"
-  "celluloid"
-  "file-roller"
-  "libreoffice-fresh"
-  "libreoffice-fresh-pt-br"
-  "qbittorrent"
-  "flatpak"
-
-  # Utilitários
-  "networkmanager"
-  "iwd"
-  "wireless-regdb"
-  "gnome-keyring"
-  "libsecret"
-  "wl-clipboard"
-  "ufw"
-  "ddcutil"
-  "lxappearance"
-  "ntfs-3g"
-  "ntfsprogs"
-  "qt5-wayland"
-  "qt6-wayland"
-
-  # Aplicações Oficiais
-  "obsidian"
 )
 
 EXTRA_AUR_PACKAGES=(
   "brave-bin"
-  "visual-studio-code-bin"
-  "catppuccin-gtk-theme-mocha"
 )
 
-PACMAN_PACKAGES=("${BASE_PACMAN_PACKAGES[@]}" "${EXTRA_PACMAN_PACKAGES[@]}")
-AUR_PACKAGES=("${EXTRA_AUR_PACKAGES[@]}")
+PACMAN_PACKAGES=("${BASE_PACMAN_PACKAGES[@]}" "${DESKTOP_PACMAN_PACKAGES[@]}" "${EXTRA_PACMAN_PACKAGES[@]}")
+AUR_PACKAGES=("${DESKTOP_AUR_PACKAGES[@]}" "${EXTRA_AUR_PACKAGES[@]}")
 
 DOTFILES_DIRS=(
   "alacritty"

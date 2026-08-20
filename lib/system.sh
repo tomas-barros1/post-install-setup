@@ -355,6 +355,11 @@ setup_mime_associations() {
   log_info "Associações MIME aplicadas!"
 }
 
+default_wayland_post_install() {
+  setup_gsettings "footclient"
+  setup_mime_associations "helium.desktop" "org.gnome.TextEditor.desktop" "org.gnome.Loupe.desktop"
+}
+
 setup_greeter() {
   local greeter_type="${1:-hyprland}" # hyprland ou sway
   local config_root="$REPO_ROOT/config/greeter/$greeter_type"
