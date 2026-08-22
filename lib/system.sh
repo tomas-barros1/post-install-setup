@@ -95,35 +95,73 @@ setup_firewall() {
 }
 
 setup_network() {
-  log_step "Configurando e otimizando rede (NetworkManager + iwd)..."
+  log_step "Configurando e otimizando rede (iwd)..."
 
-  # Desativar e mascarar completamente o systemd-networkd para evitar conflitos
-  for service in systemd-networkd systemd-networkd.socket systemd-networkd-wait-online; do
+  # Desativar e mascarar completamente serviços de rede conflitantes
+  for service in \
+    systemd-networkd \
+    systemd-networkd.socket \
+    systemd-networkd-wait-online \
+    NetworkManager \
+    NetworkManager.service \
+    NetworkManager-wait-online; do
     sudo systemctl stop "$service" 2>/dev/null || true
     sudo systemctl disable "$service" 2>/dev/null || true
     sudo systemctl mask "$service" 2>/dev/null || true
   done
 
-  # Configurar NetworkManager para usar iwd como backend de Wi-Fi
-  sudo mkdir -p /etc/NetworkManager/conf.d
-  if [[ ! -f /etc/NetworkManager/conf.d/iwd.conf ]]; then
-    echo -e "[device]\nwifi.backend=iwd" | sudo tee /etc/NetworkManager/conf.d/iwd.conf >/dev/null
-    log_info "  ✓ Backend Wi-Fi configurado para iwd (/etc/NetworkManager/conf.d/iwd.conf)"
+  enable_iwd
+  disable_wifi_power_save
+}
+
+enable_iwd() {
+  log_step "Habilitando iwd..."
+
+  sudo mkdir -p /etc/iwd
+  if [[ ! -f /etc/iwd/main.conf ]]; then
+    cat <<'EOF' | sudo tee /etc/iwd/main.conf >/dev/null
+[General]
+EnableNetworkConfiguration=true
+EOF
+    log_info "  ✓ /etc/iwd/main.conf criado"
+  elif ! sudo grep -q '^EnableNetworkConfiguration=true' /etc/iwd/main.conf; then
+    cat <<'EOF' | sudo tee -a /etc/iwd/main.conf >/dev/null
+
+[General]
+EnableNetworkConfiguration=true
+EOF
+    log_info "  ✓ EnableNetworkConfiguration=true adicionado ao iwd"
   fi
 
-  # Habilitar e iniciar serviços de rede corretos
   if sudo systemctl enable --now iwd.service 2>/dev/null; then
     log_info "  ✓ iwd.service habilitado e iniciado"
   else
     log_warn "  ✗ Falha ao habilitar iwd.service"
     FAILED_STEPS+=("network:enable-iwd")
   fi
+}
 
-  if sudo systemctl enable NetworkManager.service 2>/dev/null; then
-    log_info "  ✓ NetworkManager.service habilitado"
+disable_wifi_power_save() {
+  log_step "Desativando economia de energia do Wi‑Fi..."
+
+  sudo mkdir -p /etc/modprobe.d /etc/udev/rules.d
+
+  cat <<'EOF' | sudo tee /etc/modprobe.d/iwlwifi.conf >/dev/null
+options iwlwifi power_save=0
+options iwlmvm power_scheme=1
+EOF
+  log_info "  ✓ Tweaks aplicados para drivers Intel (iwlwifi/iwlmvm)"
+
+  cat <<'EOF' | sudo tee /etc/udev/rules.d/81-wifi-powersave.rules >/dev/null
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="wl*", RUN+="/usr/bin/iw dev %k set power_save off"
+EOF
+  log_info "  ✓ Regra udev criada para desligar power save do Wi‑Fi"
+
+  if sudo udevadm control --reload 2>/dev/null; then
+    log_info "  ✓ Regras udev recarregadas"
   else
-    log_warn "  ✗ Falha ao habilitar NetworkManager.service"
-    FAILED_STEPS+=("network:enable-networkmanager")
+    log_warn "  ✗ Falha ao recarregar regras udev"
+    FAILED_STEPS+=("network:udev-reload")
   fi
 }
 

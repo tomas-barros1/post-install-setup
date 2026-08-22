@@ -14,8 +14,9 @@ Caso você instale o Arch Linux utilizando o instalador oficial **`archinstall`*
 
 - **Type / Profile:** Escolha **`Minimal`** (se for usar Hyprland, Sway ou Noctalia via este script) ou **`Desktop`** (se for usar GNOME).
 - **Network Configuration (Rede) — ⚠️ MUITO IMPORTANTE:**
-  - Selecione **`NetworkManager`**.
-  - ❌ **NUNCA escolha *"Copy ISO configuration"***: essa opção copia as regras temporárias do `systemd-networkd` da ISO, causando conflitos crônicos de sysctl, DNS e disputa de interface com o NetworkManager.
+  - Se for usar **Hyprland**, **Hyprland (Noctalia)** ou **Sway**, prefira uma instalação **minimalista** de rede. O script agora usa **`iwd` + `impala`** nos window managers e desativa o `NetworkManager` nesses perfis.
+  - Se for usar **GNOME**, pode selecionar **`NetworkManager`** normalmente.
+  - ❌ **NUNCA escolha _"Copy ISO configuration"_**: essa opção copia as regras temporárias do `systemd-networkd` da ISO, causando conflitos crônicos de sysctl, DNS e disputa de interface.
 - **Audio Server:** Selecione **`Pipewire`**.
 - **Driver Gráfico:** Escolha o driver correspondente ao seu hardware (ex: `AMD / ATI (open-source)`, `Intel` ou `Nvidia`).
 - **Additional Packages:** Adicione pelo menos **`git`** e **`curl`**.
@@ -37,6 +38,7 @@ chmod +x install.sh
 ### 2. O que acontece durante a execução interativa?
 
 Ao rodar `./install.sh`, o script:
+
 1. Verifica os pré-requisitos (`git`, `curl`) e instala o `gum` automaticamente se necessário.
 2. Abre um menu interativo para você selecionar o seu ambiente:
    - **Hyprland**: Hyprland + Waybar + Walker + Regreet + Catppuccin
@@ -44,11 +46,18 @@ Ao rodar `./install.sh`, o script:
    - **GNOME**: GNOME Desktop com extensões, atalhos e Alacritty
    - **Sway**: Sway WM + Waybar + Walker + Regreet
    - **Arch WSL**: Ambiente Arch WSL focado em ferramentas de desenvolvimento CLI
-3. Pergunta interativamente (com confirmação visual):
+3. Nos perfis **window manager** (`Hyprland`, `Hyprland (Noctalia)` e `Sway`), o script:
+   - Instala **`iwd`**, **`impala`** e `wireless-regdb`.
+   - Remove a dependência de **`NetworkManager`** nesses perfis.
+   - Habilita o **`iwd.service`** automaticamente.
+   - Aplica ajustes para tentar desativar **power save do Wi‑Fi**.
+4. Pergunta interativamente (com confirmação visual):
+
    - Se deseja habilitar o **Chaotic AUR** (binários pré-compilados do AUR).
    - Se deseja instalar o setup de **Jogos** (Steam nativo via Pacman + Multilib, Vulkan Radeon, Lutris, GameMode, LACT, GOverlay).
    - Se deseja configurar o seu **perfil do Git** (Nome, E-mail e Delta pager).
-4. Mostra uma caixa de confirmação estilizada antes de iniciar o processo.
+
+5. Mostra uma caixa de confirmação estilizada antes de iniciar o processo.
 
 ---
 
@@ -58,7 +67,7 @@ O script para Windows instala automaticamente os gerenciadores **Winget** e **Ch
 
 ### ⚠️ Requisitos
 
-1. Abra o **PowerShell** como **Administrador** (botão direito no Menu Iniciar ou Terminal -> *Executar como Administrador*).
+1. Abra o **PowerShell** como **Administrador** (botão direito no Menu Iniciar ou Terminal -> _Executar como Administrador_).
 2. O Windows bloqueia por padrão scripts locais devido à `ExecutionPolicy`. Para rodar **sem bloqueios e sem frescura**, use a flag `-ExecutionPolicy Bypass`.
 
 ---
@@ -79,6 +88,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 ```
 
 > 💡 **Dica (Arquivo baixado da Web):** Se você baixou o repositório em arquivo `.zip` pela internet e o Windows bloqueou os scripts, desbloqueie com:
+>
 > ```powershell
 > Unblock-File .\windows\post-install.ps1
 > ```

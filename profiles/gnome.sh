@@ -11,6 +11,9 @@ source "$REPO_ROOT/profiles/base.env"
 source "$REPO_ROOT/profiles/desktop.env"
 
 EXTRA_PACMAN_PACKAGES=(
+  # Rede
+  "networkmanager"
+
   # Terminal & CLI específicos do GNOME
   "alacritty"
   "zellij"
