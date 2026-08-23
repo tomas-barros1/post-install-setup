@@ -48,6 +48,7 @@ DOTFILES_DIRS=(
   "tmux"
   "scripts"
   "btop"
+  "xdg-terminals"
 )
 
 HAS_GREETER="hyprland"

@@ -319,6 +319,9 @@ setup_gsettings() {
   fi
 
   gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null || true
+  gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Nerd Font 10' 2>/dev/null || true
+  gsettings set org.gnome.desktop.interface font-name 'Inter 10' 2>/dev/null || true
+  gsettings set org.gnome.desktop.interface document-font-name 'Inter 10' 2>/dev/null || true
   gsettings set org.gnome.desktop.wm.preferences button-layout ':' 2>/dev/null || true
   gsettings set com.github.stunkymonkey.nautilus-open-any-terminal terminal "$term_app" 2>/dev/null || true
 
@@ -396,6 +399,12 @@ setup_mime_associations() {
 default_wayland_post_install() {
   setup_gsettings "footclient"
   setup_mime_associations "helium.desktop" "org.gnome.TextEditor.desktop" "org.gnome.Loupe.desktop"
+
+  if [[ -f "$HOME/.local/scripts/font-set.py" ]] && command -v python3 &>/dev/null; then
+    log_step "Aplicando JetBrainsMono Nerd Font como fonte padrão..."
+    python3 "$HOME/.local/scripts/font-set.py" "JetBrainsMono Nerd Font" 2>/dev/null || true
+    log_info "  ✓ JetBrainsMono Nerd Font aplicada em todos os apps e terminais"
+  fi
 }
 
 setup_greeter() {

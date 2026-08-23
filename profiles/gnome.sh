@@ -39,6 +39,7 @@ DOTFILES_DIRS=(
   "astro-nvim"
   "scripts"
   "btop"
+  "xdg-terminals"
 )
 
 HAS_GREETER=""
