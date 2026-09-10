@@ -195,7 +195,7 @@ setup_fish_shell() {
     fi
   fi
 
-  }
+}
 
 setup_tpm() {
   log_step "Configurando TPM (Tmux Plugin Manager)..."
@@ -407,7 +407,7 @@ setup_gaming() {
   log_step "Configurando suporte a multilib e drivers de gaming..."
   setup_multilib
 
-  log_step "Instalando ferramentas e pacotes de gaming via pacman (Steam, Vulkan Radeon, GameMode, LACT, GOverlay)..."
+  log_step "Instalando ferramentas e pacotes de gaming via pacman (Steam, Vulkan Radeon, GameMode, LACT, GOverlay, Lutris)..."
   local gaming_pacman_pkgs=(
     "vulkan-radeon"
     "lib32-vulkan-radeon"
@@ -415,6 +415,7 @@ setup_gaming() {
     "steam"
     "lact"
     "goverlay"
+    "lutris"
   )
 
   if ! sudo pacman -S --noconfirm --needed "${gaming_pacman_pkgs[@]}"; then
@@ -427,11 +428,8 @@ setup_gaming() {
     done
   fi
 
-  if command -v flatpak &>/dev/null; then
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
-    flatpak install -y flathub net.lutris.Lutris 2>/dev/null || FAILED_STEPS+=("gaming:lutris")
-    flatpak install -y flathub net.davidotek.pupgui2 2>/dev/null || FAILED_STEPS+=("gaming:pupgui2")
-  fi
+  log_step "Instalando ProtonUp-Qt via AUR/Chaotic-AUR..."
+  install_aur_packages "protonup-qt"
 
   log_info "Setup de gaming concluído!"
 }
