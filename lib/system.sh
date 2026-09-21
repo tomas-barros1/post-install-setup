@@ -400,6 +400,12 @@ setup_greeter() {
     sudo sed -i -e "/^\[initial_session\]/,/^user =/ s/user = .*/user = \"$USER\"/" "$dest_dir/config.toml"
   fi
 
+  # Garantir diretórios e permissões para log e cache do regreet
+  sudo mkdir -p /var/log/regreet /var/lib/regreet
+  if id greeter &>/dev/null; then
+    sudo chown -R greeter:greeter /var/log/regreet /var/lib/regreet
+  fi
+
   log_info "Greeter configurado com sucesso!"
 }
 

@@ -6,5 +6,5 @@ command = "dbus-run-session sway --config /etc/greetd/sway.conf"
 user = "greeter"
 
 [initial_session]
-command = "sway"
+command = "uwsm start sway.desktop"
 user = "tom"

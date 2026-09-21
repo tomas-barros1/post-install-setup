@@ -1,10 +1,13 @@
 hl.on("hyprland.start", function()
-	hl.exec_cmd("regreet; hyprctl dispatch 'hl.dsp.exit()'")
+    hl.exec_cmd("regreet; hyprctl dispatch exit")
 end)
 hl.config({
-	misc = {
-		disable_hyprland_logo = true,
-		disable_splash_rendering = true,
+    misc = {
+        disable_hyprland_logo = true,
+        disable_splash_rendering = true,
         disable_hyprland_guiutils_check = true,
-	},
+    },
+    animations = {
+        enabled = false,
+    },
 })
