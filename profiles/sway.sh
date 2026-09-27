@@ -44,7 +44,6 @@ DOTFILES_DIRS=(
   "zed"
   "sway"
   "uwsm"
-  "systemd-user"
   "swaync"
   "waybar-sway"
   "walker"

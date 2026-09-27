@@ -47,7 +47,6 @@ DOTFILES_DIRS=(
   "zed"
   "hypr"
   "uwsm"
-  "systemd-user"
   "swaync"
   "waybar-hyprland"
   "walker"

@@ -44,7 +44,6 @@ DOTFILES_DIRS=(
   "hyprland-noctalia"
   "noctalia-shell"
   "uwsm"
-  "systemd-user"
   "lazy-nvim"
   "tmux"
   "scripts"

@@ -26,10 +26,6 @@ setup_dotfiles() {
   # Cria ~/.local como diretório real
   mkdir -p "$HOME/.local"
 
-  # systemd --user não carrega drop-ins (ex.: waybar.service.d) se o stow
-  # "foldar" o diretório como symlink — cria como diretório real antes
-  mkdir -p "$HOME/.config/systemd/user/waybar.service.d"
-
   log_step "Aplicando stow nos dotfiles selecionados..."
   cd "$dotfiles_dir" || return 1
 
@@ -219,6 +215,19 @@ setup_tpm() {
 
 setup_graphical_session_services() {
   log_step "Habilitando autostart via systemd --user (graphical-session)..."
+
+  # Unidades do dotfiles são instaladas como ARQUIVOS REAIS (cp), não via stow:
+  # fragmento em symlink é removido pelo primeiro "systemctl --user disable"
+  local src_units="$HOME/dotfiles/systemd-user/.config/systemd/user"
+  if [[ -d "$src_units" ]]; then
+    mkdir -p "$HOME/.config/systemd/user/waybar.service.d"
+    local ufile
+    for ufile in "$src_units"/*.service "$src_units"/waybar.service.d/*.conf; do
+      [[ -f "$ufile" ]] || continue
+      cp -L --remove-destination "$ufile" "$HOME/.config/systemd/user/${ufile#"$src_units"/}"
+    done
+    systemctl --user daemon-reload &>/dev/null || true
+  fi
 
   # Cada argumento é "unit.service:binário" — habilita apenas se o binário
   # existir no sistema e o unit for conhecido (nativo do pacote ou do stow systemd-user)
