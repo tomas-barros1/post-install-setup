@@ -26,6 +26,10 @@ setup_dotfiles() {
   # Cria ~/.local como diretório real
   mkdir -p "$HOME/.local"
 
+  # systemd --user não carrega drop-ins (ex.: waybar.service.d) se o stow
+  # "foldar" o diretório como symlink — cria como diretório real antes
+  mkdir -p "$HOME/.config/systemd/user/waybar.service.d"
+
   log_step "Aplicando stow nos dotfiles selecionados..."
   cd "$dotfiles_dir" || return 1
 
@@ -210,6 +214,37 @@ setup_tpm() {
   else
     log_warn "Falha ao clonar TPM"
     FAILED_STEPS+=("tpm:clone")
+  fi
+}
+
+setup_graphical_session_services() {
+  log_step "Habilitando autostart via systemd --user (graphical-session)..."
+
+  # Cada argumento é "unit.service:binário" — habilita apenas se o binário
+  # existir no sistema e o unit for conhecido (nativo do pacote ou do stow systemd-user)
+  local entry unit bin
+  for entry in "$@"; do
+    unit="${entry%%:*}"
+    bin="${entry#*:}"
+    if (command -v "$bin" &>/dev/null || [[ -x "$bin" ]]) && systemctl --user cat "$unit" &>/dev/null; then
+      systemctl --user enable "$unit" &>/dev/null
+      log_info "  ✓ $unit"
+    else
+      log_warn "  ✗ $unit (binário ou unit ausente, pulando)"
+      FAILED_STEPS+=("user-unit:$unit")
+    fi
+  done
+
+  # O Elephant gerencia o próprio serviço embutido
+  if command -v elephant &>/dev/null; then
+    if elephant service enable &>/dev/null; then
+      log_info "  ✓ elephant.service"
+    else
+      log_warn "  ✗ elephant service enable falhou"
+      FAILED_STEPS+=("user-unit:elephant")
+    fi
+  else
+    log_warn "  ✗ elephant não instalado (pulando)"
   fi
 }
 

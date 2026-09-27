@@ -44,6 +44,7 @@ DOTFILES_DIRS=(
   "hyprland-noctalia"
   "noctalia-shell"
   "uwsm"
+  "systemd-user"
   "lazy-nvim"
   "tmux"
   "scripts"
@@ -58,4 +59,7 @@ HAS_GAMING=true
 
 profile_post_install() {
   default_wayland_post_install
+  setup_graphical_session_services \
+    "noctalia.service:noctalia" \
+    "foot-server.service:foot"
 }

@@ -15,6 +15,8 @@ EXTRA_PACMAN_PACKAGES=(
   # Sway Core
   "sway"
   "xdg-desktop-portal-wlr"
+  # Autoreload do config do Sway (sway-reload-watch.service)
+  "inotify-tools"
 )
 
 EXTRA_AUR_PACKAGES=()
@@ -42,6 +44,7 @@ DOTFILES_DIRS=(
   "zed"
   "sway"
   "uwsm"
+  "systemd-user"
   "swaync"
   "waybar-sway"
   "walker"
@@ -58,4 +61,12 @@ HAS_GAMING=true
 
 profile_post_install() {
   default_wayland_post_install
+  setup_graphical_session_services \
+    "waybar-sway.service:waybar" \
+    "walker.service:walker" \
+    "waypaper-restore.service:waypaper_rs" \
+    "autotiling.service:autotiling" \
+    "flameshot.service:flameshot" \
+    "polkit-gnome.service:/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1" \
+    "sway-reload-watch.service:inotifywait"
 }
