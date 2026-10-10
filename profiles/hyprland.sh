@@ -14,7 +14,6 @@ source "$REPO_ROOT/profiles/wayland-wm.env"
 EXTRA_PACMAN_PACKAGES=(
   # Hyprland Core
   "hyprland"
-  "uwsm"
   "xdg-desktop-portal-hyprland"
   "hyprshot"
   "hyprsunset"
@@ -46,7 +45,6 @@ DOTFILES_DIRS=(
   "fish"
   "zed"
   "hypr"
-  "uwsm"
   "swaync"
   "waybar-hyprland"
   "walker"
@@ -64,13 +62,4 @@ HAS_GAMING=true
 
 profile_post_install() {
   default_wayland_post_install
-  setup_graphical_session_services \
-    "waybar.service:waybar" \
-    "swaync.service:swaync" \
-    "foot-server.service:foot" \
-    "walker.service:walker" \
-    "nautilus.service:nautilus" \
-    "flameshot.service:flameshot" \
-    "polkit-gnome.service:/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1" \
-    "waypaper-restore.service:waypaper_rs"
 }

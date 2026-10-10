@@ -213,49 +213,6 @@ setup_tpm() {
   fi
 }
 
-setup_graphical_session_services() {
-  log_step "Habilitando autostart via systemd --user (graphical-session)..."
-
-  # Unidades do dotfiles são instaladas como ARQUIVOS REAIS (cp), não via stow:
-  # fragmento em symlink é removido pelo primeiro "systemctl --user disable"
-  local src_units="$HOME/dotfiles/systemd-user/.config/systemd/user"
-  if [[ -d "$src_units" ]]; then
-    mkdir -p "$HOME/.config/systemd/user/waybar.service.d"
-    local ufile
-    for ufile in "$src_units"/*.service "$src_units"/waybar.service.d/*.conf; do
-      [[ -f "$ufile" ]] || continue
-      cp -L --remove-destination "$ufile" "$HOME/.config/systemd/user/${ufile#"$src_units"/}"
-    done
-    systemctl --user daemon-reload &>/dev/null || true
-  fi
-
-  # Cada argumento é "unit.service:binário" — habilita apenas se o binário
-  # existir no sistema e o unit for conhecido (nativo do pacote ou do stow systemd-user)
-  local entry unit bin
-  for entry in "$@"; do
-    unit="${entry%%:*}"
-    bin="${entry#*:}"
-    if (command -v "$bin" &>/dev/null || [[ -x "$bin" ]]) && systemctl --user cat "$unit" &>/dev/null; then
-      systemctl --user enable "$unit" &>/dev/null
-      log_info "  ✓ $unit"
-    else
-      log_warn "  ✗ $unit (binário ou unit ausente, pulando)"
-      FAILED_STEPS+=("user-unit:$unit")
-    fi
-  done
-
-  # O Elephant gerencia o próprio serviço embutido
-  if command -v elephant &>/dev/null; then
-    if elephant service enable &>/dev/null; then
-      log_info "  ✓ elephant.service"
-    else
-      log_warn "  ✗ elephant service enable falhou"
-      FAILED_STEPS+=("user-unit:elephant")
-    fi
-  else
-    log_warn "  ✗ elephant não instalado (pulando)"
-  fi
-}
 
 setup_git() {
   log_step "Configurando perfil do Git..."

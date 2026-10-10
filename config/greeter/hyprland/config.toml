@@ -6,5 +6,5 @@ command = "Hyprland -c /etc/greetd/hyprland.lua"
 user = "greeter"
 
 [initial_session]
-command = "uwsm start hyprland.desktop"
+command = "Hyprland"
 user = "tom"
