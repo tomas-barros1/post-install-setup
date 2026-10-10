@@ -407,6 +407,14 @@ setup_greeter() {
     sudo chown -R greeter:greeter /var/log/regreet /var/lib/regreet
   fi
 
+  # Configurar pam_gnome_keyring no greetd se ainda nao estiver presente
+  if [[ -f "/etc/pam.d/greetd" ]] && ! grep -q "pam_gnome_keyring" "/etc/pam.d/greetd"; then
+    log_info "  Configurando suporte a gnome-keyring no PAM do greetd..."
+    sudo sed -i '/auth.*system-local-login/a auth       optional     pam_gnome_keyring.so' /etc/pam.d/greetd
+    sudo sed -i '/session.*system-local-login/a session    optional     pam_gnome_keyring.so auto_start' /etc/pam.d/greetd
+    sudo sed -i '/password.*system-local-login/a password   optional     pam_gnome_keyring.so' /etc/pam.d/greetd 2>/dev/null || true
+  fi
+
   log_info "Greeter configurado com sucesso!"
 }
 
