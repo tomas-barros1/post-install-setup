@@ -2,7 +2,7 @@
 vt = 1
 
 [default_session]
-command = "dbus-run-session sway --config /etc/greetd/sway.conf"
+command = "env GTK_USE_PORTAL=0 GDK_DEBUG=no-portals dbus-run-session sway --config /etc/greetd/sway.conf"
 user = "greeter"
 
 [initial_session]

@@ -14,7 +14,7 @@ AUR_PACKAGES=()
 
 DOTFILES_DIRS=(
   "fish"
-  "lazy-nvim"
+  "astro-nvim"
   "tmux"
   "scripts"
   "btop"

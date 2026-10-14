@@ -48,7 +48,7 @@ DOTFILES_DIRS=(
   "swaync"
   "waybar-hyprland"
   "walker"
-  "lazy-nvim"
+  "astro-nvim"
   "tmux"
   "scripts"
   "btop"

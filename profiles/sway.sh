@@ -40,7 +40,7 @@ AUR_PACKAGES=(
 DOTFILES_DIRS=(
   "foot"
   "fish"
-  "nvim"
+  "astro-nvim"
   "zed"
   "sway"
   "swaync"

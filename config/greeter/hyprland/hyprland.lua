@@ -1,3 +1,8 @@
+-- Evita atraso na inicialização do ReGreet causado pelo portal GTK
+-- (ver "Troubleshooting -> Startup delays" no README do ReGreet)
+hl.env("GTK_USE_PORTAL", "0")
+hl.env("GDK_DEBUG", "no-portals")
+
 hl.on("hyprland.start", function()
     hl.exec_cmd("regreet; hyprctl dispatch exit")
 end)

@@ -42,7 +42,7 @@ DOTFILES_DIRS=(
   "zed"
   "hyprland-noctalia"
   "noctalia-shell"
-  "lazy-nvim"
+  "astro-nvim"
   "tmux"
   "scripts"
   "btop"
