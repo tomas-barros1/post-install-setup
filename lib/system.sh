@@ -3,6 +3,21 @@
 # lib/system.sh - Módulos de Configuração do Sistema e Ferramentas
 # ==============================================================================
 
+# Cria um backup com timestamp antes de alterar arquivos de sistema
+backup_file() {
+  local file="$1"
+  [[ -e "$file" ]] || return 0
+
+  local backup
+  backup="${file}.bak.$(date +%Y%m%d-%H%M%S)"
+  if sudo cp -a "$file" "$backup"; then
+    log_info "  ✓ Backup: $backup"
+  else
+    log_warn "  ✗ Falha ao criar backup de $file"
+    FAILED_STEPS+=("backup:$file")
+  fi
+}
+
 setup_dotfiles() {
   local dotfiles_dirs=("$@")
   local dotfiles_repo="https://github.com/tomas-barros1/dotfiles"
@@ -146,12 +161,14 @@ disable_wifi_power_save() {
 
   sudo mkdir -p /etc/modprobe.d /etc/udev/rules.d
 
+  backup_file /etc/modprobe.d/iwlwifi.conf
   cat <<'EOF' | sudo tee /etc/modprobe.d/iwlwifi.conf >/dev/null
 options iwlwifi power_save=0
 options iwlmvm power_scheme=1
 EOF
   log_info "  ✓ Tweaks aplicados para drivers Intel (iwlwifi/iwlmvm)"
 
+  backup_file /etc/udev/rules.d/81-wifi-powersave.rules
   cat <<'EOF' | sudo tee /etc/udev/rules.d/81-wifi-powersave.rules >/dev/null
 ACTION=="add", SUBSYSTEM=="net", KERNEL=="wl*", RUN+="/usr/bin/iw dev %k set power_save off"
 EOF
@@ -212,7 +229,6 @@ setup_tpm() {
     FAILED_STEPS+=("tpm:clone")
   fi
 }
-
 
 setup_git() {
   log_step "Configurando perfil do Git..."
@@ -427,6 +443,90 @@ setup_user_dirs() {
   log_info "  ✓ Bookmarks do Nautilus atualizados"
 }
 
+setup_bluetooth() {
+  log_step "Habilitando Bluetooth (sem autostart do applet)..."
+
+  if ! command -v bluetoothctl &>/dev/null; then
+    log_warn "  ✗ bluez não encontrado; Bluetooth não será habilitado"
+    FAILED_STEPS+=("bluetooth:bluez-missing")
+    return 0
+  fi
+
+  if sudo systemctl enable --now bluetooth.service 2>/dev/null; then
+    log_info "  ✓ bluetooth.service habilitado e iniciado"
+  else
+    log_warn "  ✗ Falha ao habilitar bluetooth.service"
+    FAILED_STEPS+=("bluetooth:enable")
+  fi
+}
+
+setup_audio() {
+  log_step "Habilitando PipeWire/WirePlumber..."
+
+  if ! command -v systemctl &>/dev/null; then
+    log_warn "  ✗ systemctl não encontrado; áudio não será habilitado"
+    FAILED_STEPS+=("audio:missing-systemctl")
+    return 0
+  fi
+
+  local units=(pipewire.socket pipewire-pulse.socket wireplumber.service)
+  if XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" systemctl --user enable --now "${units[@]}" 2>/dev/null; then
+    log_info "  ✓ PipeWire/WirePlumber habilitados"
+  else
+    log_warn "  ✗ Falha ao habilitar PipeWire/WirePlumber (será ativado no próximo login)"
+    FAILED_STEPS+=("audio:user-services")
+  fi
+}
+
+setup_maintenance() {
+  log_step "Aplicando higiene e manutenção do sistema..."
+
+  # Limita o cache do pacman a 2 versões por pacote e agenda a limpeza semanal
+  if command -v paccache &>/dev/null; then
+    if sudo paccache -rk2 >/dev/null 2>&1; then
+      log_info "  ✓ Cache do pacman limpo (2 versões por pacote)"
+    else
+      log_warn "  ✗ Falha ao limpar o cache do pacman"
+      FAILED_STEPS+=("maintenance:paccache")
+    fi
+
+    if sudo systemctl enable --now paccache.timer 2>/dev/null; then
+      log_info "  ✓ paccache.timer habilitado"
+    else
+      log_warn "  ✗ Falha ao habilitar paccache.timer"
+      FAILED_STEPS+=("maintenance:paccache-timer")
+    fi
+  else
+    log_warn "  paccache não encontrado (pacman-contrib ausente)"
+  fi
+
+  # Atualiza os mirrors periodicamente
+  if command -v reflector &>/dev/null; then
+    if sudo systemctl enable --now reflector.timer 2>/dev/null; then
+      log_info "  ✓ reflector.timer habilitado"
+    else
+      log_warn "  ✗ Falha ao habilitar reflector.timer"
+      FAILED_STEPS+=("maintenance:reflector-timer")
+    fi
+  fi
+
+  # Limita o journal a 500 MB
+  local journald_conf="/etc/systemd/journald.conf.d/99-size.conf"
+  if [[ ! -f "$journald_conf" ]]; then
+    sudo mkdir -p "$(dirname "$journald_conf")"
+    if printf '[Journal]\nSystemMaxUse=500M\n' | sudo tee "$journald_conf" >/dev/null; then
+      sudo systemctl restart systemd-journald 2>/dev/null || true
+      sudo journalctl --vacuum-size=500M >/dev/null 2>&1 || true
+      log_info "  ✓ journald limitado a 500 MB"
+    else
+      log_warn "  ✗ Falha ao configurar o journald"
+      FAILED_STEPS+=("maintenance:journald")
+    fi
+  else
+    log_info "  ✓ journald já configurado"
+  fi
+}
+
 default_wayland_post_install() {
   setup_gsettings "footclient"
   setup_mime_associations "helium.desktop" "org.gnome.TextEditor.desktop" "org.gnome.Loupe.desktop"
@@ -465,6 +565,7 @@ setup_greeter() {
       local filename
       filename=$(basename "$file")
       if [[ ! -f "$dest_dir/$filename" ]] || ! diff -q "$file" "$dest_dir/$filename" &>/dev/null; then
+        backup_file "$dest_dir/$filename"
         if sudo cp "$file" "$dest_dir/$filename"; then
           log_info "  ✓ $filename -> $dest_dir/$filename"
         else
@@ -479,6 +580,7 @@ setup_greeter() {
 
   # Ajustar usuário da sessão inicial automaticamente para o usuário atual
   if [[ -f "$dest_dir/config.toml" ]]; then
+    backup_file "$dest_dir/config.toml"
     sudo sed -i -e "/^\[initial_session\]/,/^user =/ s/user = .*/user = \"$USER\"/" "$dest_dir/config.toml"
   fi
 
@@ -491,6 +593,7 @@ setup_greeter() {
   # Configurar pam_gnome_keyring no greetd se ainda nao estiver presente
   if [[ -f "/etc/pam.d/greetd" ]] && ! grep -q "pam_gnome_keyring" "/etc/pam.d/greetd"; then
     log_info "  Configurando suporte a gnome-keyring no PAM do greetd..."
+    backup_file /etc/pam.d/greetd
     sudo sed -i '/auth.*system-local-login/a auth       optional     pam_gnome_keyring.so' /etc/pam.d/greetd
     sudo sed -i '/session.*system-local-login/a session    optional     pam_gnome_keyring.so auto_start' /etc/pam.d/greetd
     sudo sed -i '/password.*system-local-login/a password   optional     pam_gnome_keyring.so' /etc/pam.d/greetd 2>/dev/null || true
@@ -509,6 +612,7 @@ setup_gaming() {
     "lib32-vulkan-radeon"
     "gamemode"
     "steam"
+    "lib32-pipewire"
     "lact"
     "goverlay"
     "lutris"
@@ -526,6 +630,16 @@ setup_gaming() {
 
   log_step "Instalando ProtonUp-Qt via AUR/Chaotic-AUR..."
   install_aur_packages "protonup-qt"
+
+  # O LACT é composto pelo app gráfico e pelo daemon (lactd)
+  if command -v lact &>/dev/null; then
+    if sudo systemctl enable --now lactd.service 2>/dev/null; then
+      log_info "  ✓ lactd.service habilitado e iniciado"
+    else
+      log_warn "  ✗ Falha ao habilitar lactd.service"
+      FAILED_STEPS+=("gaming:lactd")
+    fi
+  fi
 
   log_info "Setup de gaming concluído!"
 }

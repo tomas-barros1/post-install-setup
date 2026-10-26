@@ -40,6 +40,55 @@ check_pre_dependencies() {
   log_info "Dependências pré-instalação verificadas: git, curl"
 }
 
+check_connectivity() {
+  log_step "Verificando conectividade..."
+  if ! curl -fsSI --max-time 10 https://archlinux.org >/dev/null 2>&1; then
+    log_error "Sem conectividade com https://archlinux.org. Verifique a rede e tente novamente."
+    exit 1
+  fi
+  log_info "Conectividade OK"
+}
+
+check_disk_space() {
+  local required_gb=10
+  local mount avail_gb
+  log_step "Verificando espaço em disco..."
+
+  for mount in / /var; do
+    [[ -d "$mount" ]] || continue
+    avail_gb=$(df -BG --output=avail "$mount" 2>/dev/null | tail -1 | tr -dc '0-9')
+    if [[ -n "$avail_gb" && "$avail_gb" -lt "$required_gb" ]]; then
+      log_error "Espaço insuficiente em $mount: ${avail_gb}GB livres (mínimo ${required_gb}GB)."
+      exit 1
+    fi
+  done
+
+  log_info "Espaço em disco OK"
+}
+
+start_sudo_keepalive() {
+  if ! sudo -v; then
+    log_error "Não foi possível validar o sudo."
+    exit 1
+  fi
+
+  (
+    while true; do
+      sudo -n true 2>/dev/null || exit 0
+      sleep 50
+    done
+  ) &
+  SUDO_KEEPALIVE_PID=$!
+  trap 'stop_sudo_keepalive' EXIT
+}
+
+stop_sudo_keepalive() {
+  if [[ -n "${SUDO_KEEPALIVE_PID:-}" ]]; then
+    kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
+    SUDO_KEEPALIVE_PID=""
+  fi
+}
+
 ensure_gum() {
   if command -v gum &>/dev/null; then
     return 0

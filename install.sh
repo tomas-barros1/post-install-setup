@@ -57,6 +57,8 @@ main() {
   check_arch_linux
   check_not_root
   check_pre_dependencies
+  check_connectivity
+  check_disk_space
   ensure_gum
 
   # 2. Seleção interativa do perfil
@@ -131,6 +133,8 @@ main() {
 
   log_banner "Executando: $PROFILE_NAME"
 
+  start_sudo_keepalive
+
   # 5. Chaotic AUR (se selecionado, habilita antes para que o pacman use os binários pré-compilados)
   if [[ "$enable_chaotic" == "true" ]]; then
     setup_chaotic_aur
@@ -155,39 +159,44 @@ main() {
   # 10. Diretórios XDG + bookmarks do Nautilus (todos os perfis)
   setup_user_dirs
 
-  # 11. Serviços base
+  # 11. Higiene e manutenção do sistema
+  setup_maintenance
+
+  # 12. Serviços base
   setup_docker
   if [[ "${HAS_DESKTOP_MODULES:-false}" == "true" ]]; then
     setup_network
     setup_firewall
+    setup_bluetooth
+    setup_audio
   fi
   setup_fish_shell
   setup_tpm
 
-  # 12. Git
+  # 13. Git
   if [[ "$configure_git" == "true" ]]; then
     setup_git
   fi
 
-  # 13. Greeter
+  # 14. Greeter
   if [[ -n "${HAS_GREETER:-}" ]]; then
     setup_greeter "$HAS_GREETER"
   fi
 
-  # 14. Gaming
+  # 15. Gaming
   if [[ "$enable_gaming" == "true" ]]; then
     setup_gaming
   fi
 
-  # 15. Pós-instalação específica do perfil
+  # 16. Pós-instalação específica do perfil
   if declare -f profile_post_install >/dev/null; then
     profile_post_install
   fi
 
-  # 16. Limpeza
+  # 17. Limpeza
   cleanup_yay
 
-  # 17. Resumo final
+  # 18. Resumo final
   print_summary "$PROFILE_NAME"
 }
 

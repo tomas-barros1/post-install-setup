@@ -19,9 +19,7 @@ EXTRA_PACMAN_PACKAGES=(
   "noctalia"
 )
 
-EXTRA_AUR_PACKAGES=(
-  "noctalia-shell"
-)
+EXTRA_AUR_PACKAGES=()
 
 PACMAN_PACKAGES=(
   "${BASE_PACMAN_PACKAGES[@]}"

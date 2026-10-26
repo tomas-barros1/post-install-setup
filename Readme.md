@@ -16,7 +16,7 @@ Caso você instale o Arch Linux utilizando o instalador oficial **`archinstall`*
 - **Network Configuration (Rede) — ⚠️ MUITO IMPORTANTE:**
   - Escolha uma instalação **minimalista** de rede. O script usa **`iwd` + `impala`** em todos os perfis e desativa o `NetworkManager`.
   - ❌ **NUNCA escolha _"Copy ISO configuration"_**: essa opção copia as regras temporárias do `systemd-networkd` da ISO, causando conflitos crônicos de sysctl, DNS e disputa de interface.
-- **Audio Server:** Selecione **`Pipewire`**.
+- **Audio Server:** Pode deixar em branco; o script instala e habilita **PipeWire + WirePlumber** de forma explícita.
 - **Driver Gráfico:** Escolha o driver correspondente ao seu hardware (ex: `AMD / ATI (open-source)`, `Intel` ou `Nvidia`).
 - **Additional Packages:** Adicione pelo menos **`git`** e **`curl`**.
 - **User Account:** Crie seu usuário e adicione-o como **sudo / wheel**.
@@ -49,6 +49,8 @@ Ao rodar `./install.sh`, o script:
    - Remove a dependência de **`NetworkManager`** nesses perfis.
    - Habilita o **`iwd.service`** automaticamente.
    - Aplica ajustes para tentar desativar **power save do Wi‑Fi**.
+   - Habilita o **Bluetooth** (`bluetooth.service`) sem iniciar o applet do Blueman junto com a sessão.
+   - Habilita o **PipeWire/WirePlumber** para áudio.
 4. Pergunta interativamente (com confirmação visual):
 
    - Se deseja habilitar o **Chaotic AUR** (binários pré-compilados do AUR).
@@ -57,6 +59,7 @@ Ao rodar `./install.sh`, o script:
 
 5. Mostra uma caixa de confirmação estilizada antes de iniciar o processo.
 6. Cria os diretórios XDG `~/Downloads`, `~/Documentos`, `~/Imagens`, `~/Músicas`, `~/Vídeos` e `~/Projetos` e os adiciona como bookmarks do **Nautilus** (em todos os perfis).
+7. Aplica higiene/manutenção do sistema: limita o cache do pacman (`paccache`), habilita o timer do `reflector` e limita o journal a 500 MB.
 
 ---
 
@@ -109,11 +112,15 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 ```
 post-install-setup/
 ├── install.sh                     # Ponto de entrada interativo com gum
+├── .github/workflows/lint.yml     # CI: sintaxe, ShellCheck e shfmt
+├── .shellcheckrc                  # Exceções para arquivos carregados via source
+├── .editorconfig                  # Padronização de indentação/fim de linha
+├── LICENSE                        # Licença MIT
 ├── lib/                           # Módulos reutilizáveis (Core)
 │   ├── log.sh                     # Cores ANSI, logging e sumário final
-│   ├── checks.sh                  # Validação de Arch, root, dependências e gum
-│   ├── packages.sh                # Pacman, Yay, Chaotic-AUR, AUR Helper
-│   └── system.sh                  # Dotfiles (stow), Docker, Fish, Git, UFW, Greeter, XDG/Bookmarks
+│   ├── checks.sh                  # Validação de Arch, root, rede, disco, dependências, gum e sudo keepalive
+│   ├── packages.sh                # Pacman, Yay, Chaotic-AUR, AUR Helper e backups do pacman.conf
+│   └── system.sh                  # Dotfiles (stow), Docker, Fish, Git, UFW, Bluetooth, áudio, manutenção, Greeter, XDG/Bookmarks
 ├── profiles/                      # Definições de pacotes por ambiente
 │   ├── base.env                   # Pacotes CLI universais
 │   ├── desktop.env                # Pacotes GUI compartilhados

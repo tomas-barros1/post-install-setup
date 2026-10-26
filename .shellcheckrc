@@ -1,0 +1,2 @@
+# Variáveis definidas em profiles/*.sh e *.env são consumidas pelo install.sh via source.
+disable=SC1090,SC1091,SC2034,SC2153

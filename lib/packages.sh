@@ -11,7 +11,11 @@ install_pacman_packages() {
 
   log_step "Atualizando base de dados e instalando pacotes oficiais (${#packages[@]} pacotes)..."
 
-  sudo pacman -Syu --noconfirm
+  if ! sudo pacman -Syu --noconfirm; then
+    log_error "Falha ao atualizar o sistema (pacman -Syu). Verifique rede/mirrors e tente novamente."
+    FAILED_STEPS+=("pacman:upgrade")
+    return 1
+  fi
 
   if ! sudo pacman -S --noconfirm --needed "${packages[@]}"; then
     log_warn "Falha na instalação em lote pelo pacman. Tentando pacote por pacote..."
@@ -92,6 +96,7 @@ setup_chaotic_aur() {
   fi
 
   if ! grep -q "chaotic-aur" /etc/pacman.conf; then
+    backup_file /etc/pacman.conf
     echo -e "\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
   fi
 
@@ -111,6 +116,7 @@ setup_multilib() {
   fi
 
   log_step "Habilitando repositório multilib no pacman.conf..."
+  backup_file /etc/pacman.conf
 
   if grep -q "^#\[multilib\]" /etc/pacman.conf 2>/dev/null; then
     sudo sed -i '/^#\[multilib\]/{s/^#//;n;s/^#//}' /etc/pacman.conf
