@@ -1,0 +1,21 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = ai-memory-bin
+Target = ai-memory
+Target = rtk-bin
+Target = rtk
+Target = opencode
+Target = openai-codex
+Target = cursor-cli
+Target = github-copilot-cli
+Target = antigravity-cli
+Target = agy
+Target = claude-code
+Target = gemini-cli
+
+[Action]
+Description = Atualizando integrações dos agentes de IA (ai-memory/RTK)...
+When = PostTransaction
+Exec = /usr/local/bin/ai-agents-refresh --schedule

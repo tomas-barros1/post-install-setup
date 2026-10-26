@@ -59,7 +59,11 @@ Ao rodar `./install.sh`, o script:
 
 5. Mostra uma caixa de confirmação estilizada antes de iniciar o processo.
 6. Cria os diretórios XDG `~/Downloads`, `~/Documentos`, `~/Imagens`, `~/Músicas`, `~/Vídeos` e `~/Projetos` e os adiciona como bookmarks do **Nautilus** (em todos os perfis).
-7. Aplica higiene/manutenção do sistema: limita o cache do pacman (`paccache`), habilita o timer do `reflector` e limita o journal a 500 MB.
+7. Configura os agentes de IA instalados com **ai-memory** (memória de longo prazo) e **RTK** (otimização de comandos), incluindo Codex, OpenCode, Cursor, Copilot CLI, Antigravity CLI, Gemini CLI e Claude Code quando presentes.
+8. Instala o hook `/etc/pacman.d/hooks/ai-agents-refresh.hook` e o script `/usr/local/bin/ai-agents-refresh`. Após atualizações de `ai-memory-bin`, `rtk-bin` ou dos CLIs dos agentes, as integrações são regeneradas automaticamente. O refresh é agendado alguns segundos depois da transação (via `systemd-run`) para não competir com o reload do user manager; o log fica em `/var/log/ai-agents-refresh.log`.
+9. Aplica higiene/manutenção do sistema: limita o cache do pacman (`paccache`) e limita o journal a 500 MB.
+
+> 💡 **ai-memory + RTK:** os pacotes `ai-memory-bin` e `rtk-bin` vêm do AUR. O `ai-memory` roda como serviço de usuário (`ai-memory.service`) em `127.0.0.1:49374`; o `rtk` é configurado globalmente para cada agente detectado. Depois de instalar um novo agente, rode `ai-memory setup --yes --agent <agente>` e o comando RTK correspondente (`rtk init -g --codex`, `rtk init -g --opencode`, `rtk init -g --agent cursor`, etc.) ou simplesmente execute `sudo /usr/local/bin/ai-agents-refresh`.
 
 ---
 
@@ -120,7 +124,9 @@ post-install-setup/
 │   ├── log.sh                     # Cores ANSI, logging e sumário final
 │   ├── checks.sh                  # Validação de Arch, root, rede, disco, dependências, gum e sudo keepalive
 │   ├── packages.sh                # Pacman, Yay, Chaotic-AUR, AUR Helper e backups do pacman.conf
-│   └── system.sh                  # Dotfiles (stow), Docker, Fish, Git, UFW, Bluetooth, áudio, manutenção, Greeter, XDG/Bookmarks
+│   ├── system.sh                  # Dotfiles (stow), Docker, Fish, Git, UFW, Bluetooth, áudio, manutenção, agentes de IA, Greeter, XDG/Bookmarks
+│   ├── ai-agents-refresh.sh       # Template do script que atualiza ai-memory/RTK após upgrades
+│   └── ai-agents-refresh.hook     # Template do hook do pacman para agentes de IA
 ├── profiles/                      # Definições de pacotes por ambiente
 │   ├── base.env                   # Pacotes CLI universais
 │   ├── desktop.env                # Pacotes GUI compartilhados

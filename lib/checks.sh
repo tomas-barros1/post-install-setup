@@ -38,6 +38,13 @@ check_pre_dependencies() {
   fi
 
   log_info "Dependências pré-instalação verificadas: git, curl"
+
+  # Verificar sudo antes de qualquer interação — evita setup abortado no meio
+  if ! sudo -v 2>/dev/null; then
+    log_error "Usuário '$USER' não tem permissão sudo configurada ou a senha está incorreta."
+    exit 1
+  fi
+  log_info "Sudo verificado com sucesso"
 }
 
 check_connectivity() {

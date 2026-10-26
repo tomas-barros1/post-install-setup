@@ -3,6 +3,48 @@
 # lib/system.sh - Módulos de Configuração do Sistema e Ferramentas
 # ==============================================================================
 
+setup_locale() {
+  log_step "Configurando locale e timezone..."
+
+  # Garantir pt_BR.UTF-8 no locale.gen (descomenta ou adiciona)
+  if grep -q '^#pt_BR.UTF-8' /etc/locale.gen 2>/dev/null; then
+    backup_file /etc/locale.gen
+    sudo sed -i 's/^#\(pt_BR\.UTF-8\)/\1/' /etc/locale.gen
+    log_info "  ✓ pt_BR.UTF-8 descomentado em /etc/locale.gen"
+  elif ! grep -q '^pt_BR.UTF-8' /etc/locale.gen 2>/dev/null; then
+    echo 'pt_BR.UTF-8 UTF-8' | sudo tee -a /etc/locale.gen > /dev/null
+    log_info "  ✓ pt_BR.UTF-8 adicionado em /etc/locale.gen"
+  fi
+
+  if sudo locale-gen >> "${LOGFILE:-/dev/null}" 2>&1; then
+    log_info "  ✓ locale-gen executado"
+  else
+    log_warn "  ✗ Falha ao gerar locales"
+    FAILED_STEPS+=("locale:locale-gen")
+  fi
+
+  if sudo localectl set-locale LANG=pt_BR.UTF-8 2>/dev/null; then
+    log_info "  ✓ LANG=pt_BR.UTF-8"
+  else
+    log_warn "  ✗ Falha ao definir locale (localectl)"
+    FAILED_STEPS+=("locale:set-locale")
+  fi
+
+  if sudo timedatectl set-timezone America/Sao_Paulo 2>/dev/null; then
+    log_info "  ✓ Timezone: America/Sao_Paulo"
+  else
+    log_warn "  ✗ Falha ao definir timezone"
+    FAILED_STEPS+=("locale:timezone")
+  fi
+
+  if sudo timedatectl set-ntp true 2>/dev/null; then
+    log_info "  ✓ NTP habilitado"
+  else
+    log_warn "  ✗ Falha ao habilitar NTP"
+    FAILED_STEPS+=("locale:ntp")
+  fi
+}
+
 # Cria um backup com timestamp antes de alterar arquivos de sistema
 backup_file() {
   local file="$1"
@@ -112,6 +154,14 @@ setup_firewall() {
 setup_network() {
   log_step "Configurando e otimizando rede (iwd)..."
 
+  # Verificar iwd antes de mascarar o NetworkManager — sem iwd o sistema
+  # ficaria sem gerenciador de rede e impossível de recuperar sem intervenção.
+  if ! command -v iwctl &>/dev/null; then
+    log_warn "  ✗ iwd não encontrado; NetworkManager NÃO será mascarado para evitar perda de rede"
+    FAILED_STEPS+=("network:iwd-missing")
+    return 1
+  fi
+
   # Desativar e mascarar completamente serviços de rede conflitantes
   for service in \
     systemd-networkd \
@@ -189,7 +239,7 @@ setup_fish_shell() {
     echo "/usr/bin/fish" | sudo tee -a /etc/shells >/dev/null
   fi
 
-  if sudo chsh -s /usr/bin/fish "$USER"; then
+  if sudo usermod -s /usr/bin/fish "$USER" 2>/dev/null || sudo chsh -s /usr/bin/fish "$USER"; then
     log_info "Shell padrão alterado para Fish com sucesso!"
   else
     log_warn "Falha ao alterar o shell padrão para Fish"
@@ -363,6 +413,9 @@ setup_mime_associations() {
 }
 
 # Codifica um caminho como URI (acentos e espaços) para o arquivo de bookmarks do GTK
+# IMPORTANTE: o 'local LC_ALL=C' força o bash a iterar byte a byte em strings UTF-8
+# (como "Músicas"), o que é exatamente o comportamento necessário para percent-encoding
+# correto. Não remova essa linha.
 _uri_encode() {
   local LC_ALL=C
   local s="$1" out="" c i
@@ -500,16 +553,6 @@ setup_maintenance() {
     log_warn "  paccache não encontrado (pacman-contrib ausente)"
   fi
 
-  # Atualiza os mirrors periodicamente
-  if command -v reflector &>/dev/null; then
-    if sudo systemctl enable --now reflector.timer 2>/dev/null; then
-      log_info "  ✓ reflector.timer habilitado"
-    else
-      log_warn "  ✗ Falha ao habilitar reflector.timer"
-      FAILED_STEPS+=("maintenance:reflector-timer")
-    fi
-  fi
-
   # Limita o journal a 500 MB
   local journald_conf="/etc/systemd/journald.conf.d/99-size.conf"
   if [[ ! -f "$journald_conf" ]]; then
@@ -524,6 +567,166 @@ setup_maintenance() {
     fi
   else
     log_info "  ✓ journald já configurado"
+  fi
+}
+
+install_ai_agents_refresh_hook() {
+  local refresh_template="$REPO_ROOT/lib/ai-agents-refresh.sh"
+  local hook_template="$REPO_ROOT/lib/ai-agents-refresh.hook"
+  local refresh_tmp
+
+  if [[ ! -f "$refresh_template" || ! -f "$hook_template" ]]; then
+    log_warn "  ✗ Templates do refresh de agentes não encontrados"
+    FAILED_STEPS+=("ai-agents:templates")
+    return 1
+  fi
+
+  refresh_tmp="$(mktemp)"
+  sed "s|@TARGET_USER@|${USER:-$(id -un)}|g" "$refresh_template" >"$refresh_tmp"
+
+  if sudo install -m 0755 "$refresh_tmp" /usr/local/bin/ai-agents-refresh; then
+    log_info "  ✓ /usr/local/bin/ai-agents-refresh"
+  else
+    log_warn "  ✗ Falha ao instalar ai-agents-refresh"
+    FAILED_STEPS+=("ai-agents:refresh-script")
+  fi
+  rm -f "$refresh_tmp"
+
+  if sudo install -d -m 0755 /etc/pacman.d/hooks; then
+    backup_file /etc/pacman.d/hooks/ai-agents-refresh.hook
+    if sudo install -m 0644 "$hook_template" /etc/pacman.d/hooks/ai-agents-refresh.hook; then
+      log_info "  ✓ Hook do pacman: ai-agents-refresh.hook"
+    else
+      log_warn "  ✗ Falha ao instalar hook do pacman"
+      FAILED_STEPS+=("ai-agents:pacman-hook")
+    fi
+  fi
+
+  # Logrotate para /var/log/ai-agents-refresh.log
+  local logrotate_conf="/etc/logrotate.d/ai-agents-refresh"
+  if [[ ! -f "$logrotate_conf" ]]; then
+    if printf '/var/log/ai-agents-refresh.log {\n    rotate 4\n    weekly\n    missingok\n    compress\n    notifempty\n}\n' \
+        | sudo tee "$logrotate_conf" > /dev/null; then
+      log_info "  ✓ logrotate configurado para ai-agents-refresh.log"
+    else
+      log_warn "  ✗ Falha ao criar configuração de logrotate"
+      FAILED_STEPS+=("ai-agents:logrotate")
+    fi
+  else
+    log_info "  ✓ logrotate já configurado"
+  fi
+}
+
+setup_ai_agents() {
+  log_step "Configurando agentes de IA (ai-memory + RTK)..."
+
+  if command -v ai-memory &>/dev/null; then
+    local -a ai_memory_agents=()
+    if command -v claude &>/dev/null || [[ -d "$HOME/.claude" ]]; then
+      ai_memory_agents+=(--agent claude-code)
+    fi
+    command -v codex &>/dev/null && ai_memory_agents+=(--agent codex)
+    if command -v cursor-agent &>/dev/null || [[ -d "$HOME/.cursor" ]]; then
+      ai_memory_agents+=(--agent cursor)
+    fi
+    command -v copilot &>/dev/null && ai_memory_agents+=(--agent copilot-cli)
+    command -v opencode &>/dev/null && ai_memory_agents+=(--agent open-code)
+    command -v gemini &>/dev/null && ai_memory_agents+=(--agent gemini-cli)
+    if command -v agy &>/dev/null || [[ -d "$HOME/.gemini/antigravity-cli" ]]; then
+      ai_memory_agents+=(--agent antigravity-cli)
+    fi
+
+    if [[ ${#ai_memory_agents[@]} -gt 0 ]]; then
+      if ai-memory setup --yes "${ai_memory_agents[@]}" >>"${LOGFILE:-/dev/null}" 2>&1; then
+        log_info "  ✓ ai-memory integrado aos agentes instalados"
+      else
+        log_warn "  ✗ Falha ao configurar ai-memory (ver $LOGFILE)"
+        FAILED_STEPS+=("ai-agents:ai-memory")
+      fi
+    else
+      if ai-memory setup --yes >>"${LOGFILE:-/dev/null}" 2>&1; then
+        log_info "  ✓ ai-memory configurado (autodetecção)"
+      else
+        log_warn "  ✗ Falha ao configurar ai-memory (ver $LOGFILE)"
+        FAILED_STEPS+=("ai-agents:ai-memory")
+      fi
+    fi
+  else
+    log_warn "  ai-memory não encontrado; integração ignorada"
+    FAILED_STEPS+=("ai-agents:ai-memory-missing")
+  fi
+
+  if command -v rtk &>/dev/null; then
+    if command -v claude &>/dev/null || [[ -d "$HOME/.claude" ]]; then
+      if rtk init -g --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
+        log_info "  ✓ RTK: Claude Code"
+      else
+        log_warn "  ✗ RTK: Claude Code"
+        FAILED_STEPS+=("ai-agents:rtk-claude")
+      fi
+    fi
+
+    if command -v opencode &>/dev/null; then
+      if rtk init -g --opencode --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
+        log_info "  ✓ RTK: OpenCode"
+      else
+        log_warn "  ✗ RTK: OpenCode"
+        FAILED_STEPS+=("ai-agents:rtk-opencode")
+      fi
+    fi
+
+    if command -v codex &>/dev/null; then
+      # O modo --codex não aceita --auto-patch; confirma o patch via stdin.
+      if printf 'y\ny\ny\n' | rtk init -g --codex >>"${LOGFILE:-/dev/null}" 2>&1; then
+        log_info "  ✓ RTK: Codex"
+      else
+        log_warn "  ✗ RTK: Codex"
+        FAILED_STEPS+=("ai-agents:rtk-codex")
+      fi
+    fi
+
+    if command -v copilot &>/dev/null; then
+      if rtk init -g --copilot --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
+        log_info "  ✓ RTK: Copilot CLI"
+      else
+        log_warn "  ✗ RTK: Copilot CLI"
+        FAILED_STEPS+=("ai-agents:rtk-copilot")
+      fi
+    fi
+
+    if command -v cursor-agent &>/dev/null || command -v cursor &>/dev/null; then
+      if rtk init -g --agent cursor --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
+        log_info "  ✓ RTK: Cursor"
+      else
+        log_warn "  ✗ RTK: Cursor"
+        FAILED_STEPS+=("ai-agents:rtk-cursor")
+      fi
+    fi
+
+    if command -v agy &>/dev/null || [[ -d "$HOME/.gemini/antigravity-cli" ]]; then
+      if rtk init -g --agent antigravity --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
+        log_info "  ✓ RTK: Antigravity CLI"
+      else
+        log_warn "  ✗ RTK: Antigravity CLI"
+        FAILED_STEPS+=("ai-agents:rtk-antigravity")
+      fi
+    fi
+
+    if command -v gemini &>/dev/null; then
+      if rtk init -g --gemini --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
+        log_info "  ✓ RTK: Gemini CLI"
+      else
+        log_warn "  ✗ RTK: Gemini CLI"
+        FAILED_STEPS+=("ai-agents:rtk-gemini")
+      fi
+    fi
+  else
+    log_warn "  RTK não encontrado; integração ignorada"
+    FAILED_STEPS+=("ai-agents:rtk-missing")
+  fi
+
+  if command -v ai-memory &>/dev/null || command -v rtk &>/dev/null; then
+    install_ai_agents_refresh_hook
   fi
 }
 

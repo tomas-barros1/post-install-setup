@@ -135,34 +135,40 @@ main() {
 
   start_sudo_keepalive
 
-  # 5. Chaotic AUR (se selecionado, habilita antes para que o pacman use os binários pré-compilados)
+  # 5. Locale e timezone (antes de tudo — xdg-user-dirs depende do locale)
+  setup_locale
+
+  # 6. Chaotic AUR (se selecionado, habilita antes para que o pacman use os binários pré-compilados)
   if [[ "$enable_chaotic" == "true" ]]; then
     setup_chaotic_aur
   fi
 
-  # 6. Pacotes oficiais e Chaotic AUR (Pacman)
+  # 7. Pacotes oficiais e Chaotic AUR (Pacman)
   install_pacman_packages "${PACMAN_PACKAGES[@]}"
 
-  # 7. AUR Helper (yay)
+  # 8. AUR Helper (yay)
   install_yay
 
-  # 8. Pacotes do AUR (com priorização automática de binários do Chaotic AUR)
+  # 9. Pacotes do AUR (com priorização automática de binários do Chaotic AUR)
   if [[ ${#AUR_PACKAGES[@]} -gt 0 ]]; then
     install_aur_packages "${AUR_PACKAGES[@]}"
   fi
 
-  # 9. Dotfiles
+  # 10. Dotfiles
   if [[ ${#DOTFILES_DIRS[@]} -gt 0 ]]; then
     setup_dotfiles "${DOTFILES_DIRS[@]}"
   fi
 
-  # 10. Diretórios XDG + bookmarks do Nautilus (todos os perfis)
+  # 11. Diretórios XDG + bookmarks do Nautilus (todos os perfis)
   setup_user_dirs
 
-  # 11. Higiene e manutenção do sistema
+  # 12. Agentes de IA (ai-memory + RTK) e hook de refresh do pacman
+  setup_ai_agents
+
+  # 13. Higiene e manutenção do sistema
   setup_maintenance
 
-  # 12. Serviços base
+  # 14. Serviços base
   setup_docker
   if [[ "${HAS_DESKTOP_MODULES:-false}" == "true" ]]; then
     setup_network
@@ -173,30 +179,30 @@ main() {
   setup_fish_shell
   setup_tpm
 
-  # 13. Git
+  # 15. Git
   if [[ "$configure_git" == "true" ]]; then
     setup_git
   fi
 
-  # 14. Greeter
+  # 16. Greeter
   if [[ -n "${HAS_GREETER:-}" ]]; then
     setup_greeter "$HAS_GREETER"
   fi
 
-  # 15. Gaming
+  # 17. Gaming
   if [[ "$enable_gaming" == "true" ]]; then
     setup_gaming
   fi
 
-  # 16. Pós-instalação específica do perfil
+  # 18. Pós-instalação específica do perfil
   if declare -f profile_post_install >/dev/null; then
     profile_post_install
   fi
 
-  # 17. Limpeza
+  # 19. Limpeza
   cleanup_yay
 
-  # 18. Resumo final
+  # 20. Resumo final
   print_summary "$PROFILE_NAME"
 }
 
