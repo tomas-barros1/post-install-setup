@@ -21,7 +21,6 @@ select_profile_interactive() {
   local options=(
     "hyprland           -> Hyprland + Waybar + Walker + Regreet"
     "hyprland-noctalia  -> Hyprland com a suíte Noctalia Shell"
-    "gnome              -> GNOME Desktop com extensões e atalhos"
     "sway               -> Sway Wayland i3-compatible"
     "wsl                -> Arch WSL (Desenvolvimento CLI)"
   )
@@ -33,9 +32,9 @@ select_profile_interactive() {
   else
     echo "Selecione o ambiente que deseja instalar:"
     PS3="Digite o número da opção: "
-    select opt in "hyprland" "hyprland-noctalia" "gnome" "sway" "wsl" "Sair"; do
+    select opt in "hyprland" "hyprland-noctalia" "sway" "wsl" "Sair"; do
       case "$opt" in
-        "hyprland" | "hyprland-noctalia" | "gnome" | "sway" | "wsl")
+        "hyprland" | "hyprland-noctalia" | "sway" | "wsl")
           SELECTED_PROFILE="$opt"
           break
           ;;
@@ -153,7 +152,10 @@ main() {
     setup_dotfiles "${DOTFILES_DIRS[@]}"
   fi
 
-  # 10. Serviços base
+  # 10. Diretórios XDG + bookmarks do Nautilus (todos os perfis)
+  setup_user_dirs
+
+  # 11. Serviços base
   setup_docker
   if [[ "${HAS_DESKTOP_MODULES:-false}" == "true" ]]; then
     setup_network
@@ -162,30 +164,30 @@ main() {
   setup_fish_shell
   setup_tpm
 
-  # 11. Git
+  # 12. Git
   if [[ "$configure_git" == "true" ]]; then
     setup_git
   fi
 
-  # 12. Greeter
+  # 13. Greeter
   if [[ -n "${HAS_GREETER:-}" ]]; then
     setup_greeter "$HAS_GREETER"
   fi
 
-  # 13. Gaming
+  # 14. Gaming
   if [[ "$enable_gaming" == "true" ]]; then
     setup_gaming
   fi
 
-  # 14. Pós-instalação específica do perfil
+  # 15. Pós-instalação específica do perfil
   if declare -f profile_post_install >/dev/null; then
     profile_post_install
   fi
 
-  # 15. Limpeza
+  # 16. Limpeza
   cleanup_yay
 
-  # 16. Resumo final
+  # 17. Resumo final
   print_summary "$PROFILE_NAME"
 }
 

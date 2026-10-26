@@ -346,6 +346,87 @@ setup_mime_associations() {
   log_info "Associações MIME aplicadas!"
 }
 
+# Codifica um caminho como URI (acentos e espaços) para o arquivo de bookmarks do GTK
+_uri_encode() {
+  local LC_ALL=C
+  local s="$1" out="" c i
+
+  for ((i = 0; i < ${#s}; i++)); do
+    c="${s:i:1}"
+    case "$c" in
+      [a-zA-Z0-9/._~-]) out+="$c" ;;
+      *)
+        printf -v c '%%%02X' "'$c"
+        out+="$c"
+        ;;
+    esac
+  done
+
+  printf '%s' "$out"
+}
+
+setup_user_dirs() {
+  log_step "Configurando diretórios XDG e bookmarks do Nautilus..."
+
+  # Nomes fixos em pt-BR, independentes do locale da instalação
+  local dir_names=(
+    "DOWNLOAD"
+    "DOCUMENTS"
+    "PICTURES"
+    "MUSIC"
+    "VIDEOS"
+    "PROJECTS"
+  )
+  local dir_labels=(
+    "Downloads"
+    "Documentos"
+    "Imagens"
+    "Músicas"
+    "Vídeos"
+    "Projetos"
+  )
+  local dir_paths=(
+    "$HOME/Downloads"
+    "$HOME/Documentos"
+    "$HOME/Imagens"
+    "$HOME/Músicas"
+    "$HOME/Vídeos"
+    "$HOME/Projetos"
+  )
+
+  local i
+  for i in "${!dir_paths[@]}"; do
+    mkdir -p "${dir_paths[$i]}"
+  done
+
+  if command -v xdg-user-dirs-update &>/dev/null; then
+    # Preenche os demais diretórios XDG conforme o locale (Desktop, Modelos, etc.)
+    xdg-user-dirs-update 2>/dev/null || true
+    for i in "${!dir_names[@]}"; do
+      xdg-user-dirs-update --set "${dir_names[$i]}" "${dir_paths[$i]}" 2>/dev/null || true
+    done
+    log_info "  ✓ user-dirs.dirs atualizado (${dir_labels[*]})"
+  else
+    log_warn "  ✗ xdg-user-dirs-update não encontrado"
+    FAILED_STEPS+=("user-dirs:xdg-user-dirs-update")
+  fi
+
+  # Nautilus (GTK3 e GTK4) lê os bookmarks de ~/.config/gtk-3.0/bookmarks
+  local bookmarks_file="$HOME/.config/gtk-3.0/bookmarks"
+  local uri
+  mkdir -p "$(dirname "$bookmarks_file")"
+  touch "$bookmarks_file"
+
+  for i in "${!dir_paths[@]}"; do
+    uri="file://$(_uri_encode "${dir_paths[$i]}")"
+    if ! awk -v u="$uri" '$1 == u { found = 1 } END { exit !found }' "$bookmarks_file"; then
+      printf '%s %s\n' "$uri" "${dir_labels[$i]}" >>"$bookmarks_file"
+    fi
+  done
+
+  log_info "  ✓ Bookmarks do Nautilus atualizados"
+}
+
 default_wayland_post_install() {
   setup_gsettings "footclient"
   setup_mime_associations "helium.desktop" "org.gnome.TextEditor.desktop" "org.gnome.Loupe.desktop"

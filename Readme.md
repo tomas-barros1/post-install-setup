@@ -1,6 +1,6 @@
 # 🚀 Post-Install Setup (Arch Linux & Windows)
 
-Scripts automatizados e modulares de pós-instalação para **Arch Linux** (Wayland / Desktop / WSL) e **Windows** (PowerShell).
+Scripts automatizados e modulares de pós-instalação para **Arch Linux** (Wayland / WSL) e **Windows** (PowerShell).
 
 ---
 
@@ -12,10 +12,9 @@ No Arch Linux, o instalador é **totalmente interativo**. Não precisa passar fl
 
 Caso você instale o Arch Linux utilizando o instalador oficial **`archinstall`**, siga estas orientações para garantir uma base limpa:
 
-- **Type / Profile:** Escolha **`Minimal`** (se for usar Hyprland, Sway ou Noctalia via este script) ou **`Desktop`** (se for usar GNOME).
+- **Type / Profile:** Escolha **`Minimal`** (Hyprland, Sway ou Noctalia via este script).
 - **Network Configuration (Rede) — ⚠️ MUITO IMPORTANTE:**
-  - Se for usar **Hyprland**, **Hyprland (Noctalia)** ou **Sway**, prefira uma instalação **minimalista** de rede. O script agora usa **`iwd` + `impala`** nos window managers e desativa o `NetworkManager` nesses perfis.
-  - Se for usar **GNOME**, pode selecionar **`NetworkManager`** normalmente.
+  - Escolha uma instalação **minimalista** de rede. O script usa **`iwd` + `impala`** em todos os perfis e desativa o `NetworkManager`.
   - ❌ **NUNCA escolha _"Copy ISO configuration"_**: essa opção copia as regras temporárias do `systemd-networkd` da ISO, causando conflitos crônicos de sysctl, DNS e disputa de interface.
 - **Audio Server:** Selecione **`Pipewire`**.
 - **Driver Gráfico:** Escolha o driver correspondente ao seu hardware (ex: `AMD / ATI (open-source)`, `Intel` ou `Nvidia`).
@@ -43,7 +42,6 @@ Ao rodar `./install.sh`, o script:
 2. Abre um menu interativo para você selecionar o seu ambiente:
    - **Hyprland**: Hyprland + Waybar + Walker + Regreet + Catppuccin
    - **Hyprland (Noctalia)**: Hyprland integrado com a suíte Noctalia Shell
-   - **GNOME**: GNOME Desktop com extensões, atalhos e Alacritty
    - **Sway**: Sway WM + Waybar + Walker + Regreet
    - **Arch WSL**: Ambiente Arch WSL focado em ferramentas de desenvolvimento CLI
 3. Nos perfis **window manager** (`Hyprland`, `Hyprland (Noctalia)` e `Sway`), o script:
@@ -58,6 +56,7 @@ Ao rodar `./install.sh`, o script:
    - Se deseja configurar o seu **perfil do Git** (Nome, E-mail e Delta pager).
 
 5. Mostra uma caixa de confirmação estilizada antes de iniciar o processo.
+6. Cria os diretórios XDG `~/Downloads`, `~/Documentos`, `~/Imagens`, `~/Músicas`, `~/Vídeos` e `~/Projetos` e os adiciona como bookmarks do **Nautilus** (em todos os perfis).
 
 ---
 
@@ -114,19 +113,17 @@ post-install-setup/
 │   ├── log.sh                     # Cores ANSI, logging e sumário final
 │   ├── checks.sh                  # Validação de Arch, root, dependências e gum
 │   ├── packages.sh                # Pacman, Yay, Chaotic-AUR, AUR Helper
-│   └── system.sh                  # Dotfiles (stow), Docker, Fish, Git, UFW, Greeter
+│   └── system.sh                  # Dotfiles (stow), Docker, Fish, Git, UFW, Greeter, XDG/Bookmarks
 ├── profiles/                      # Definições de pacotes por ambiente
 │   ├── base.env                   # Pacotes CLI universais
 │   ├── desktop.env                # Pacotes GUI compartilhados
 │   ├── wayland-wm.env             # Stack compartilhado de WMs Wayland (Fcitx, Foot, Walker, etc.)
 │   ├── hyprland.sh                # Perfil Hyprland padrão
 │   ├── hyprland-noctalia.sh       # Perfil Hyprland com Noctalia
-│   ├── gnome.sh                   # Perfil GNOME Desktop
 │   ├── sway.sh                    # Perfil Sway WM
 │   └── wsl.sh                     # Perfil Arch WSL
 ├── config/                        # Arquivos de configuração estáticos
-│   ├── greeter/                   # Configs de login (Greetd / ReGreet)
-│   └── gnome/                     # Scripts de atalhos e extensões do GNOME
+│   └── greeter/                   # Configs de login (Greetd / ReGreet)
 └── windows/                       # Automação Windows PowerShell
     ├── post-install.ps1           # Script de pós-instalação do Windows
     └── Restore_Windows_...reg     # Tweaks do registro para o Photo Viewer
