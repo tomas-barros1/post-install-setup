@@ -12,11 +12,11 @@ setup_locale() {
     sudo sed -i 's/^#\(pt_BR\.UTF-8\)/\1/' /etc/locale.gen
     log_info "  ✓ pt_BR.UTF-8 descomentado em /etc/locale.gen"
   elif ! grep -q '^pt_BR.UTF-8' /etc/locale.gen 2>/dev/null; then
-    echo 'pt_BR.UTF-8 UTF-8' | sudo tee -a /etc/locale.gen > /dev/null
+    echo 'pt_BR.UTF-8 UTF-8' | sudo tee -a /etc/locale.gen >/dev/null
     log_info "  ✓ pt_BR.UTF-8 adicionado em /etc/locale.gen"
   fi
 
-  if sudo locale-gen >> "${LOGFILE:-/dev/null}" 2>&1; then
+  if sudo locale-gen >/dev/null 2>&1; then
     log_info "  ✓ locale-gen executado"
   else
     log_warn "  ✗ Falha ao gerar locales"
@@ -605,8 +605,8 @@ install_ai_agents_refresh_hook() {
   # Logrotate para /var/log/ai-agents-refresh.log
   local logrotate_conf="/etc/logrotate.d/ai-agents-refresh"
   if [[ ! -f "$logrotate_conf" ]]; then
-    if printf '/var/log/ai-agents-refresh.log {\n    rotate 4\n    weekly\n    missingok\n    compress\n    notifempty\n}\n' \
-        | sudo tee "$logrotate_conf" > /dev/null; then
+    if printf '/var/log/ai-agents-refresh.log {\n    rotate 4\n    weekly\n    missingok\n    compress\n    notifempty\n}\n' |
+      sudo tee "$logrotate_conf" >/dev/null; then
       log_info "  ✓ logrotate configurado para ai-agents-refresh.log"
     else
       log_warn "  ✗ Falha ao criar configuração de logrotate"

@@ -11,7 +11,7 @@ source "$REPO_ROOT/profiles/base.env"
 
 PACMAN_PACKAGES=("${BASE_PACMAN_PACKAGES[@]}")
 AUR_PACKAGES=(
-  "${BASE_AUR_PACKAGES[@]}"  # ai-memory-bin, rtk-bin
+  "${BASE_AUR_PACKAGES[@]}" # ai-memory-bin, rtk-bin
 )
 
 DOTFILES_DIRS=(
@@ -32,7 +32,7 @@ profile_post_install() {
 
   local wsl_conf="/etc/wsl.conf"
   if [[ ! -f "$wsl_conf" ]]; then
-    cat <<EOF | sudo tee "$wsl_conf" > /dev/null
+    cat <<EOF | sudo tee "$wsl_conf" >/dev/null
 [boot]
 systemd=true
 
