@@ -15,6 +15,8 @@ EXTRA_PACMAN_PACKAGES=(
   # Sway Core
   "sway"
   "xdg-desktop-portal-wlr"
+  "swayidle"
+  "swaylock"
   # Autoreload do config do Sway (sway-reload-watch.service)
   "inotify-tools"
 )

@@ -16,20 +16,54 @@ NC='\033[0m' # Sem Cor
 FAILED_PACKAGES=()
 FAILED_STEPS=()
 
+# Grava no arquivo de log (sem cores) — LOGFILE pode não existir em --help
+_log_file() {
+  printf '%s %s\n' "$(date +%H:%M:%S)" "$1" >>"${LOGFILE:-/dev/null}"
+}
+
 log_info() {
-  echo -e "${GREEN}✔${NC} $1" | tee -a "$LOGFILE"
+  echo -e "${GREEN}✔${NC} $1"
+  _log_file "✔ $1"
 }
 
 log_warn() {
-  echo -e "${YELLOW}⚠${NC} $1" | tee -a "$LOGFILE"
+  echo -e "${YELLOW}⚠${NC} $1"
+  _log_file "⚠ $1"
 }
 
 log_error() {
-  echo -e "${RED}✖${NC} $1" | tee -a "$LOGFILE"
+  echo -e "${RED}✖${NC} $1" >&2
+  _log_file "✖ $1"
 }
 
 log_step() {
-  echo -e "${BLUE}➜${NC} $1" | tee -a "$LOGFILE"
+  echo -e "${BLUE}➜${NC} $1"
+  _log_file "➜ $1"
+}
+
+# Executa um comando mostrando a saída na tela E gravando no log.
+# Preserva o código de saída do comando (não o do tee).
+run_logged() {
+  local -a st
+  "$@" 2>&1 | tee -a "${LOGFILE:-/dev/null}" && st=("${PIPESTATUS[@]}") || st=("${PIPESTATUS[@]}")
+  return "${st[0]}"
+}
+
+# Executa uma etapa não-crítica: se falhar, registra em FAILED_STEPS e segue em frente.
+# (Sem isso, o `set -e` do install.sh derrubaria o script inteiro em qualquer falha.)
+run_step() {
+  local name="$1"
+  shift
+  local before=${#FAILED_STEPS[@]} rc=0
+  "$@" || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    log_warn "Etapa '$name' falhou (código $rc); continuando com as demais."
+    # A própria função pode já ter registrado um motivo mais específico
+    if [[ ${#FAILED_STEPS[@]} -eq $before ]]; then
+      FAILED_STEPS+=("$name")
+    fi
+  fi
+  return 0
 }
 
 log_banner() {
@@ -85,7 +119,11 @@ print_summary() {
   echo "  2. Reinicie o terminal para ativar Fish shell e Mise"
   echo "  3. Execute 'mise doctor' para validar as runtimes instaladas"
   echo "  4. Se estiver usando tmux, pressione <prefix> + I para instalar plugins via TPM"
+  if [[ "${HAS_DESKTOP_MODULES:-false}" == "true" ]]; then
+    echo "  5. Rede: a troca NetworkManager -> iwd vale a partir do PRÓXIMO boot."
+    echo "     Wi-Fi: conecte com 'impala' ou 'iwctl'. (iwd puro: cabo não é gerenciado.)"
+  fi
   echo ""
-  log_info "Log completo salvo em: $LOGFILE"
+  log_info "Log salvo em: $LOGFILE (inclui a saída do pacman/yay)"
   echo ""
 }

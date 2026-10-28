@@ -4,16 +4,20 @@
 # ==============================================================================
 
 setup_locale() {
-  log_step "Configurando locale e timezone..."
+  local locale_name="${POST_INSTALL_LOCALE:-pt_BR.UTF-8}"
+  local timezone="${POST_INSTALL_TIMEZONE:-America/Sao_Paulo}"
+  local locale_re="${locale_name//./\\.}"
 
-  # Garantir pt_BR.UTF-8 no locale.gen (descomenta ou adiciona)
-  if grep -q '^#pt_BR.UTF-8' /etc/locale.gen 2>/dev/null; then
+  log_step "Configurando locale (${locale_name}) e timezone (${timezone})..."
+
+  # Garantir o locale no locale.gen (descomenta ou adiciona)
+  if grep -q "^#${locale_re} " /etc/locale.gen 2>/dev/null; then
     backup_file /etc/locale.gen
-    sudo sed -i 's/^#\(pt_BR\.UTF-8\)/\1/' /etc/locale.gen
-    log_info "  ✓ pt_BR.UTF-8 descomentado em /etc/locale.gen"
-  elif ! grep -q '^pt_BR.UTF-8' /etc/locale.gen 2>/dev/null; then
-    echo 'pt_BR.UTF-8 UTF-8' | sudo tee -a /etc/locale.gen >/dev/null
-    log_info "  ✓ pt_BR.UTF-8 adicionado em /etc/locale.gen"
+    sudo sed -i "s/^#\(${locale_re} \)/\1/" /etc/locale.gen
+    log_info "  ✓ ${locale_name} descomentado em /etc/locale.gen"
+  elif ! grep -q "^${locale_re} " /etc/locale.gen 2>/dev/null; then
+    echo "${locale_name} UTF-8" | sudo tee -a /etc/locale.gen >/dev/null
+    log_info "  ✓ ${locale_name} adicionado em /etc/locale.gen"
   fi
 
   if sudo locale-gen >/dev/null 2>&1; then
@@ -23,15 +27,21 @@ setup_locale() {
     FAILED_STEPS+=("locale:locale-gen")
   fi
 
-  if sudo localectl set-locale LANG=pt_BR.UTF-8 2>/dev/null; then
-    log_info "  ✓ LANG=pt_BR.UTF-8"
+  if sudo localectl set-locale "LANG=${locale_name}" 2>/dev/null; then
+    log_info "  ✓ LANG=${locale_name}"
   else
     log_warn "  ✗ Falha ao definir locale (localectl)"
     FAILED_STEPS+=("locale:set-locale")
   fi
 
-  if sudo timedatectl set-timezone America/Sao_Paulo 2>/dev/null; then
-    log_info "  ✓ Timezone: America/Sao_Paulo"
+  # No WSL o timezone/NTP são controlados pelo Windows
+  if is_wsl; then
+    log_info "  ✓ WSL detectado: timezone e NTP ficam a cargo do Windows"
+    return 0
+  fi
+
+  if sudo timedatectl set-timezone "$timezone" 2>/dev/null; then
+    log_info "  ✓ Timezone: ${timezone}"
   else
     log_warn "  ✗ Falha ao definir timezone"
     FAILED_STEPS+=("locale:timezone")
@@ -60,13 +70,20 @@ backup_file() {
   fi
 }
 
+# Extrai, da saída de erro do stow, os alvos (relativos ao $HOME) que conflitam.
+_stow_conflicts() {
+  printf '%s\n' "$1" | sed -nE \
+    -e 's/.*existing target is (neither a link nor a directory|not owned by stow): (.*)$/\2/p' \
+    -e 's/.*cannot stow .* over existing target (.*) since .*/\1/p' | sort -u
+}
+
 setup_dotfiles() {
   local dotfiles_dirs=("$@")
-  local dotfiles_repo="https://github.com/tomas-barros1/dotfiles"
-  local dotfiles_dir="$HOME/dotfiles"
+  local dotfiles_repo="${DOTFILES_REPO:-https://github.com/tomas-barros1/dotfiles}"
+  local dotfiles_dir="${DOTFILES_DIR:-$HOME/dotfiles}"
 
   if [[ ! -d "$dotfiles_dir" ]]; then
-    log_step "Clonando repositório de dotfiles..."
+    log_step "Clonando repositório de dotfiles ($dotfiles_repo)..."
     if ! git clone "$dotfiles_repo" "$dotfiles_dir"; then
       log_warn "Falha ao clonar dotfiles de $dotfiles_repo"
       FAILED_STEPS+=("dotfiles:clone")
@@ -74,42 +91,54 @@ setup_dotfiles() {
     fi
   else
     log_step "Atualizando repositório de dotfiles existente..."
-    if ! git -C "$dotfiles_dir" pull; then
-      log_warn "Falha ao atualizar dotfiles (git pull)"
+    if ! git -C "$dotfiles_dir" pull --ff-only; then
+      log_warn "Falha ao atualizar dotfiles (git pull --ff-only); usando a versão local"
       FAILED_STEPS+=("dotfiles:pull")
     fi
   fi
 
-  # Cria ~/.local como diretório real
+  # Cria ~/.local como diretório real (evita que o stow faça symlink da pasta inteira)
   mkdir -p "$HOME/.local"
 
   log_step "Aplicando stow nos dotfiles selecionados..."
-  cd "$dotfiles_dir" || return 1
+
+  local dir out conflicts target stamp
+  stamp="$(date +%Y%m%d-%H%M%S)"
 
   for dir in "${dotfiles_dirs[@]}"; do
-    if [[ -d "$dir" ]]; then
-      if stow -R "$dir" 2>/dev/null; then
-        log_info "  ✓ $dir"
-      else
-        log_warn "  ✗ $dir (conflito ou erro de stow)"
-        FAILED_STEPS+=("stow:$dir")
-      fi
-    else
+    if [[ ! -d "$dotfiles_dir/$dir" ]]; then
       log_warn "  Diretório '$dir' não encontrado em dotfiles"
+      continue
+    fi
+
+    if out=$(stow -d "$dotfiles_dir" -t "$HOME" -R "$dir" 2>&1); then
+      log_info "  ✓ $dir"
+      continue
+    fi
+
+    # Conflito com arquivos existentes: move para .bak.<data> (NUNCA usa --adopt,
+    # que sobrescreveria o conteúdo do repositório com os arquivos locais).
+    conflicts="$(_stow_conflicts "$out")"
+    if [[ -z "$conflicts" ]]; then
+      log_warn "  ✗ $dir: $out"
+      FAILED_STEPS+=("stow:$dir")
+      continue
+    fi
+
+    while IFS= read -r target; do
+      if [[ -n "$target" ]] && { [[ -e "$HOME/$target" ]] || [[ -L "$HOME/$target" ]]; }; then
+        mv "$HOME/$target" "$HOME/$target.bak.$stamp"
+        log_info "    backup: ~/$target -> ~/$target.bak.$stamp"
+      fi
+    done <<<"$conflicts"
+
+    if out=$(stow -d "$dotfiles_dir" -t "$HOME" -R "$dir" 2>&1); then
+      log_info "  ✓ $dir (conflitos salvos como .bak.$stamp)"
+    else
+      log_warn "  ✗ $dir: $out"
+      FAILED_STEPS+=("stow:$dir")
     fi
   done
-
-  # Processar scripts/ com --adopt se existir
-  if [[ -d "scripts" ]]; then
-    if ! stow --adopt scripts/ 2>/dev/null; then
-      log_warn "  ✗ scripts (falha no stow --adopt)"
-      FAILED_STEPS+=("stow:scripts")
-    else
-      log_info "  ✓ scripts (adotado com sucesso)"
-    fi
-  fi
-
-  cd - >/dev/null || true
 }
 
 setup_docker() {
@@ -130,105 +159,6 @@ setup_docker() {
     fi
   else
     log_info "Usuário já pertence ao grupo docker"
-  fi
-}
-
-setup_firewall() {
-  log_step "Configurando firewall (UFW)..."
-
-  if ! sudo ufw allow ssh; then
-    log_warn "Falha ao liberar porta SSH no UFW"
-    FAILED_STEPS+=("ufw:allow-ssh")
-  fi
-
-  if sudo ufw status | grep -qw "active"; then
-    log_info "UFW já estava ativo"
-  elif sudo ufw --force enable; then
-    log_info "UFW configurado e ativado!"
-  else
-    log_warn "Falha ao ativar UFW"
-    FAILED_STEPS+=("ufw:enable")
-  fi
-}
-
-setup_network() {
-  log_step "Configurando e otimizando rede (iwd)..."
-
-  # Verificar iwd antes de mascarar o NetworkManager — sem iwd o sistema
-  # ficaria sem gerenciador de rede e impossível de recuperar sem intervenção.
-  if ! command -v iwctl &>/dev/null; then
-    log_warn "  ✗ iwd não encontrado; NetworkManager NÃO será mascarado para evitar perda de rede"
-    FAILED_STEPS+=("network:iwd-missing")
-    return 1
-  fi
-
-  # Desativar e mascarar completamente serviços de rede conflitantes
-  for service in \
-    systemd-networkd \
-    systemd-networkd.socket \
-    systemd-networkd-wait-online \
-    NetworkManager \
-    NetworkManager.service \
-    NetworkManager-wait-online; do
-    sudo systemctl stop "$service" 2>/dev/null || true
-    sudo systemctl disable "$service" 2>/dev/null || true
-    sudo systemctl mask "$service" 2>/dev/null || true
-  done
-
-  enable_iwd
-  disable_wifi_power_save
-}
-
-enable_iwd() {
-  log_step "Habilitando iwd..."
-
-  sudo mkdir -p /etc/iwd
-  if [[ ! -f /etc/iwd/main.conf ]]; then
-    cat <<'EOF' | sudo tee /etc/iwd/main.conf >/dev/null
-[General]
-EnableNetworkConfiguration=true
-EOF
-    log_info "  ✓ /etc/iwd/main.conf criado"
-  elif ! sudo grep -q '^EnableNetworkConfiguration=true' /etc/iwd/main.conf; then
-    cat <<'EOF' | sudo tee -a /etc/iwd/main.conf >/dev/null
-
-[General]
-EnableNetworkConfiguration=true
-EOF
-    log_info "  ✓ EnableNetworkConfiguration=true adicionado ao iwd"
-  fi
-
-  if sudo systemctl enable --now iwd.service 2>/dev/null; then
-    log_info "  ✓ iwd.service habilitado e iniciado"
-  else
-    log_warn "  ✗ Falha ao habilitar iwd.service"
-    FAILED_STEPS+=("network:enable-iwd")
-  fi
-}
-
-disable_wifi_power_save() {
-  log_step "Desativando economia de energia do Wi‑Fi..."
-
-  sudo mkdir -p /etc/modprobe.d /etc/udev/rules.d
-
-  backup_file /etc/modprobe.d/iwlwifi.conf
-  cat <<'EOF' | sudo tee /etc/modprobe.d/iwlwifi.conf >/dev/null
-options iwlwifi power_save=0
-options iwlmvm power_scheme=1
-EOF
-  log_info "  ✓ Tweaks aplicados para drivers Intel (iwlwifi/iwlmvm)"
-
-  backup_file /etc/udev/rules.d/81-wifi-powersave.rules
-  cat <<'EOF' | sudo tee /etc/udev/rules.d/81-wifi-powersave.rules >/dev/null
-ACTION=="add", SUBSYSTEM=="net", KERNEL=="wl*", RUN+="/usr/bin/iw dev %k set power_save off"
-EOF
-  log_info "  ✓ Regra udev criada para desligar power save do Wi‑Fi"
-
-  if sudo udevadm control --reload 2>/dev/null; then
-    log_info "  ✓ Regras udev recarregadas"
-  else
-    log_warn "  ✗ Falha ao recarregar regras udev"
-    FAILED_STEPS+=("network:udev-reload")
   fi
 }
 
@@ -291,7 +221,10 @@ setup_git() {
   local git_name=""
   local git_email=""
 
-  if command -v gum &>/dev/null; then
+  if [[ -n "${GIT_USER_NAME:-}" && -n "${GIT_USER_EMAIL:-}" ]]; then
+    git_name="$GIT_USER_NAME"
+    git_email="$GIT_USER_EMAIL"
+  elif command -v gum &>/dev/null; then
     git_name=$(gum input --placeholder "Digite o seu nome para o Git" --value "$current_user" --header "Git User Name:")
     git_email=$(gum input --placeholder "Digite o seu email para o Git" --value "$current_email" --header "Git User Email:")
   else
@@ -745,6 +678,7 @@ setup_greeter() {
   local greeter_type="${1:-hyprland}" # hyprland ou sway
   local config_root="$REPO_ROOT/config/greeter/$greeter_type"
   local dest_dir="/etc/greetd"
+  local autologin="${GREETER_AUTOLOGIN:-true}"
 
   log_step "Configurando greetd greeter ($greeter_type)..."
 
@@ -763,29 +697,34 @@ setup_greeter() {
 
   sudo mkdir -p "$dest_dir"
 
+  local file filename tmp
+  tmp="$(mktemp)"
   for file in "$config_root"/*; do
-    if [[ -f "$file" ]]; then
-      local filename
-      filename=$(basename "$file")
-      if [[ ! -f "$dest_dir/$filename" ]] || ! diff -q "$file" "$dest_dir/$filename" &>/dev/null; then
-        backup_file "$dest_dir/$filename"
-        if sudo cp "$file" "$dest_dir/$filename"; then
-          log_info "  ✓ $filename -> $dest_dir/$filename"
-        else
-          log_warn "  ✗ Falha ao copiar $filename"
-          FAILED_STEPS+=("greeter:copy-$filename")
-        fi
-      else
-        log_info "  ✓ $filename (já atualizado)"
-      fi
+    [[ -f "$file" ]] || continue
+    filename=$(basename "$file")
+
+    # Os arquivos do repo usam @USER@ como placeholder do usuário
+    sed "s|@USER@|${USER}|g" "$file" >"$tmp"
+
+    # Sem autologin: remove o bloco [initial_session] (é a última seção do config.toml)
+    if [[ "$filename" == "config.toml" && "$autologin" != "true" ]]; then
+      sed -i '/^\[initial_session\]/,$d' "$tmp"
+    fi
+
+    if [[ -f "$dest_dir/$filename" ]] && sudo cmp -s "$tmp" "$dest_dir/$filename"; then
+      log_info "  ✓ $filename (já atualizado)"
+      continue
+    fi
+
+    backup_file "$dest_dir/$filename"
+    if sudo install -m 0644 "$tmp" "$dest_dir/$filename"; then
+      log_info "  ✓ $filename -> $dest_dir/$filename"
+    else
+      log_warn "  ✗ Falha ao copiar $filename"
+      FAILED_STEPS+=("greeter:copy-$filename")
     fi
   done
-
-  # Ajustar usuário da sessão inicial automaticamente para o usuário atual
-  if [[ -f "$dest_dir/config.toml" ]]; then
-    backup_file "$dest_dir/config.toml"
-    sudo sed -i -e "/^\[initial_session\]/,/^user =/ s/user = .*/user = \"$USER\"/" "$dest_dir/config.toml"
-  fi
+  rm -f "$tmp"
 
   # Garantir diretórios e permissões para log e cache do regreet
   sudo mkdir -p /var/log/regreet /var/lib/regreet
@@ -793,7 +732,9 @@ setup_greeter() {
     sudo chown -R greeter:greeter /var/log/regreet /var/lib/regreet
   fi
 
-  # Configurar pam_gnome_keyring no greetd se ainda nao estiver presente
+  # Configurar pam_gnome_keyring no greetd se ainda nao estiver presente.
+  # Obs.: o keyring só é destravado quando a senha é digitada no regreet;
+  # no autologin (initial_session) não há senha, então ele fica trancado.
   if [[ -f "/etc/pam.d/greetd" ]] && ! grep -q "pam_gnome_keyring" "/etc/pam.d/greetd"; then
     log_info "  Configurando suporte a gnome-keyring no PAM do greetd..."
     backup_file /etc/pam.d/greetd
@@ -805,26 +746,47 @@ setup_greeter() {
   log_info "Greeter configurado com sucesso!"
 }
 
+# Detecta o fabricante da GPU principal: amd | intel | nvidia | unknown
+detect_gpu_vendor() {
+  local info
+  info="$(lspci -nn 2>/dev/null | grep -Ei 'vga|3d controller|display controller' || true)"
+
+  # Prioriza GPU dedicada em máquinas híbridas
+  if grep -qiE 'nvidia' <<<"$info"; then
+    echo nvidia
+  elif grep -qiE 'amd|ati|radeon' <<<"$info"; then
+    echo amd
+  elif grep -qi 'intel' <<<"$info"; then
+    echo intel
+  else
+    echo unknown
+  fi
+}
+
 setup_gaming() {
   log_step "Configurando suporte a multilib e drivers de gaming..."
   setup_multilib
 
-  log_step "Instalando ferramentas e pacotes de gaming via pacman (Steam, Vulkan Radeon, GameMode, LACT, GOverlay, Lutris)..."
-  local gaming_pacman_pkgs=(
-    "vulkan-radeon"
-    "lib32-vulkan-radeon"
-    "gamemode"
-    "steam"
-    "lib32-pipewire"
-    "lact"
-    "goverlay"
-    "lutris"
-  )
+  local gpu
+  gpu="$(detect_gpu_vendor)"
+  log_info "GPU detectada: $gpu"
 
-  if ! sudo pacman -S --noconfirm --needed "${gaming_pacman_pkgs[@]}"; then
+  local gaming_pacman_pkgs=("gamemode" "steam" "lib32-pipewire" "goverlay" "lutris")
+  case "$gpu" in
+    amd) gaming_pacman_pkgs+=("vulkan-radeon" "lib32-vulkan-radeon" "lact") ;;
+    intel) gaming_pacman_pkgs+=("vulkan-intel" "lib32-vulkan-intel") ;;
+    nvidia) gaming_pacman_pkgs+=("nvidia-utils" "lib32-nvidia-utils" "lact") ;;
+    *)
+      log_warn "GPU não identificada: instale manualmente o driver Vulkan (vulkan-radeon/vulkan-intel/nvidia-utils)"
+      FAILED_STEPS+=("gaming:vulkan-driver")
+      ;;
+  esac
+
+  log_step "Instalando ferramentas de gaming via pacman (${gaming_pacman_pkgs[*]})..."
+  if ! run_logged sudo pacman -S --noconfirm --needed "${gaming_pacman_pkgs[@]}"; then
     log_warn "Falha na instalação em lote de gaming pelo pacman. Tentando pacote por pacote..."
     for pkg in "${gaming_pacman_pkgs[@]}"; do
-      if ! sudo pacman -S --noconfirm --needed "$pkg" 2>/dev/null; then
+      if ! run_logged sudo pacman -S --noconfirm --needed "$pkg"; then
         log_warn "Falha ao instalar: $pkg"
         FAILED_STEPS+=("gaming:$pkg")
       fi

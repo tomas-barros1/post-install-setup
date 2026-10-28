@@ -10,6 +10,10 @@ check_arch_linux() {
   fi
 }
 
+is_wsl() {
+  [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qi microsoft /proc/version 2>/dev/null
+}
+
 check_not_root() {
   if [[ $EUID -eq 0 ]]; then
     log_error "Não execute este script como root ou com sudo diretamente."

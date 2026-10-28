@@ -17,6 +17,8 @@ EXTRA_PACMAN_PACKAGES=(
   "xdg-desktop-portal-hyprland"
   "hyprshot"
   "hyprsunset"
+  "hypridle"
+  "hyprlock"
 )
 
 EXTRA_AUR_PACKAGES=(
