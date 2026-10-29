@@ -1,3 +1,18 @@
+# Agente instalado pela primeira vez: integra ai-memory + RTK a ele.
+# (Upgrades de agentes NÃO precisam de refresh: os hooks são comandos nativos.)
+[Trigger]
+Operation = Install
+Type = Package
+Target = openai-codex
+Target = cursor-cli
+Target = github-copilot-cli
+Target = antigravity-cli
+Target = agy
+Target = claude-code
+Target = gemini-cli
+
+# ai-memory/RTK instalados ou atualizados; OpenCode (o plugin V1/V2 é escolhido
+# no setup, então uma mudança de versão pede re-setup).
 [Trigger]
 Operation = Install
 Operation = Upgrade
@@ -7,15 +22,9 @@ Target = ai-memory
 Target = rtk-bin
 Target = rtk
 Target = opencode
-Target = openai-codex
-Target = cursor-cli
-Target = github-copilot-cli
-Target = antigravity-cli
-Target = agy
-Target = claude-code
-Target = gemini-cli
 
 [Action]
 Description = Atualizando integrações dos agentes de IA (ai-memory/RTK)...
 When = PostTransaction
 Exec = /usr/local/bin/ai-agents-refresh --schedule
+NeedsTargets

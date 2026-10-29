@@ -505,11 +505,10 @@ setup_maintenance() {
 
 install_ai_agents_refresh_hook() {
   local refresh_template="$REPO_ROOT/lib/ai-agents-refresh.sh"
-  local hook_template="$REPO_ROOT/lib/ai-agents-refresh.hook"
-  local refresh_tmp
+  local hook_file refresh_tmp
 
-  if [[ ! -f "$refresh_template" || ! -f "$hook_template" ]]; then
-    log_warn "  ✗ Templates do refresh de agentes não encontrados"
+  if [[ ! -f "$refresh_template" ]]; then
+    log_warn "  ✗ Template do refresh de agentes não encontrado"
     FAILED_STEPS+=("ai-agents:templates")
     return 1
   fi
@@ -525,15 +524,27 @@ install_ai_agents_refresh_hook() {
   fi
   rm -f "$refresh_tmp"
 
-  if sudo install -d -m 0755 /etc/pacman.d/hooks; then
-    backup_file /etc/pacman.d/hooks/ai-agents-refresh.hook
-    if sudo install -m 0644 "$hook_template" /etc/pacman.d/hooks/ai-agents-refresh.hook; then
-      log_info "  ✓ Hook do pacman: ai-agents-refresh.hook"
-    else
-      log_warn "  ✗ Falha ao instalar hook do pacman"
-      FAILED_STEPS+=("ai-agents:pacman-hook")
+  # Hooks do pacman: refresh pós-transação e backup do ai-memory pré-upgrade
+  sudo install -d -m 0755 /etc/pacman.d/hooks
+  for hook_file in ai-agents-refresh.hook ai-memory-backup.hook; do
+    if [[ ! -f "$REPO_ROOT/lib/$hook_file" ]]; then
+      log_warn "  ✗ $hook_file não encontrado no repositório"
+      FAILED_STEPS+=("ai-agents:$hook_file")
+      continue
     fi
-  fi
+    if [[ -f "/etc/pacman.d/hooks/$hook_file" ]] &&
+      sudo cmp -s "$REPO_ROOT/lib/$hook_file" "/etc/pacman.d/hooks/$hook_file"; then
+      log_info "  ✓ Hook do pacman: $hook_file (já atualizado)"
+      continue
+    fi
+    backup_file "/etc/pacman.d/hooks/$hook_file"
+    if sudo install -m 0644 "$REPO_ROOT/lib/$hook_file" "/etc/pacman.d/hooks/$hook_file"; then
+      log_info "  ✓ Hook do pacman: $hook_file"
+    else
+      log_warn "  ✗ Falha ao instalar $hook_file"
+      FAILED_STEPS+=("ai-agents:$hook_file")
+    fi
+  done
 
   # Logrotate para /var/log/ai-agents-refresh.log
   local logrotate_conf="/etc/logrotate.d/ai-agents-refresh"
@@ -550,116 +561,25 @@ install_ai_agents_refresh_hook() {
   fi
 }
 
+# Integra ai-memory e RTK aos agentes instalados. Usa o MESMO script dos hooks do
+# pacman (/usr/local/bin/ai-agents-refresh), então instalação e atualização
+# seguem exatamente a mesma lógica de detecção.
 setup_ai_agents() {
   log_step "Configurando agentes de IA (ai-memory + RTK)..."
 
-  if command -v ai-memory &>/dev/null; then
-    local -a ai_memory_agents=()
-    if command -v claude &>/dev/null || [[ -d "$HOME/.claude" ]]; then
-      ai_memory_agents+=(--agent claude-code)
-    fi
-    command -v codex &>/dev/null && ai_memory_agents+=(--agent codex)
-    if command -v cursor-agent &>/dev/null || [[ -d "$HOME/.cursor" ]]; then
-      ai_memory_agents+=(--agent cursor)
-    fi
-    command -v copilot &>/dev/null && ai_memory_agents+=(--agent copilot-cli)
-    command -v opencode &>/dev/null && ai_memory_agents+=(--agent open-code)
-    command -v gemini &>/dev/null && ai_memory_agents+=(--agent gemini-cli)
-    if command -v agy &>/dev/null || [[ -d "$HOME/.gemini/antigravity-cli" ]]; then
-      ai_memory_agents+=(--agent antigravity-cli)
-    fi
-
-    if [[ ${#ai_memory_agents[@]} -gt 0 ]]; then
-      if ai-memory setup --yes "${ai_memory_agents[@]}" >>"${LOGFILE:-/dev/null}" 2>&1; then
-        log_info "  ✓ ai-memory integrado aos agentes instalados"
-      else
-        log_warn "  ✗ Falha ao configurar ai-memory (ver $LOGFILE)"
-        FAILED_STEPS+=("ai-agents:ai-memory")
-      fi
-    else
-      if ai-memory setup --yes >>"${LOGFILE:-/dev/null}" 2>&1; then
-        log_info "  ✓ ai-memory configurado (autodetecção)"
-      else
-        log_warn "  ✗ Falha ao configurar ai-memory (ver $LOGFILE)"
-        FAILED_STEPS+=("ai-agents:ai-memory")
-      fi
-    fi
-  else
-    log_warn "  ai-memory não encontrado; integração ignorada"
-    FAILED_STEPS+=("ai-agents:ai-memory-missing")
+  if ! command -v ai-memory &>/dev/null && ! command -v rtk &>/dev/null; then
+    log_warn "  ai-memory e RTK não encontrados; integração ignorada"
+    FAILED_STEPS+=("ai-agents:tools-missing")
+    return 1
   fi
 
-  if command -v rtk &>/dev/null; then
-    if command -v claude &>/dev/null || [[ -d "$HOME/.claude" ]]; then
-      if rtk init -g --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
-        log_info "  ✓ RTK: Claude Code"
-      else
-        log_warn "  ✗ RTK: Claude Code"
-        FAILED_STEPS+=("ai-agents:rtk-claude")
-      fi
-    fi
+  install_ai_agents_refresh_hook || return 1
 
-    if command -v opencode &>/dev/null; then
-      if rtk init -g --opencode --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
-        log_info "  ✓ RTK: OpenCode"
-      else
-        log_warn "  ✗ RTK: OpenCode"
-        FAILED_STEPS+=("ai-agents:rtk-opencode")
-      fi
-    fi
-
-    if command -v codex &>/dev/null; then
-      # O modo --codex não aceita --auto-patch; confirma o patch via stdin.
-      if printf 'y\ny\ny\n' | rtk init -g --codex >>"${LOGFILE:-/dev/null}" 2>&1; then
-        log_info "  ✓ RTK: Codex"
-      else
-        log_warn "  ✗ RTK: Codex"
-        FAILED_STEPS+=("ai-agents:rtk-codex")
-      fi
-    fi
-
-    if command -v copilot &>/dev/null; then
-      if rtk init -g --copilot --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
-        log_info "  ✓ RTK: Copilot CLI"
-      else
-        log_warn "  ✗ RTK: Copilot CLI"
-        FAILED_STEPS+=("ai-agents:rtk-copilot")
-      fi
-    fi
-
-    if command -v cursor-agent &>/dev/null || command -v cursor &>/dev/null; then
-      if rtk init -g --agent cursor --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
-        log_info "  ✓ RTK: Cursor"
-      else
-        log_warn "  ✗ RTK: Cursor"
-        FAILED_STEPS+=("ai-agents:rtk-cursor")
-      fi
-    fi
-
-    if command -v agy &>/dev/null || [[ -d "$HOME/.gemini/antigravity-cli" ]]; then
-      if rtk init -g --agent antigravity --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
-        log_info "  ✓ RTK: Antigravity CLI"
-      else
-        log_warn "  ✗ RTK: Antigravity CLI"
-        FAILED_STEPS+=("ai-agents:rtk-antigravity")
-      fi
-    fi
-
-    if command -v gemini &>/dev/null; then
-      if rtk init -g --gemini --auto-patch --no-trust-filters >>"${LOGFILE:-/dev/null}" 2>&1; then
-        log_info "  ✓ RTK: Gemini CLI"
-      else
-        log_warn "  ✗ RTK: Gemini CLI"
-        FAILED_STEPS+=("ai-agents:rtk-gemini")
-      fi
-    fi
+  if run_logged sudo env AI_AGENTS_REFRESH_VERBOSE=1 /usr/local/bin/ai-agents-refresh; then
+    log_info "  ✓ ai-memory e RTK integrados aos agentes instalados"
   else
-    log_warn "  RTK não encontrado; integração ignorada"
-    FAILED_STEPS+=("ai-agents:rtk-missing")
-  fi
-
-  if command -v ai-memory &>/dev/null || command -v rtk &>/dev/null; then
-    install_ai_agents_refresh_hook
+    log_warn "  ✗ Alguma integração falhou (ver /var/log/ai-agents-refresh.log)"
+    FAILED_STEPS+=("ai-agents:refresh")
   fi
 }
 

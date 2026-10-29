@@ -1,0 +1,12 @@
+# As migrações do banco do ai-memory só andam para frente: um binário antigo se
+# recusa a abrir dados migrados. Backup antes de atualizar permite voltar atrás.
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = ai-memory-bin
+Target = ai-memory
+
+[Action]
+Description = Backup do ai-memory antes de atualizar...
+When = PreTransaction
+Exec = /usr/local/bin/ai-agents-refresh --backup
