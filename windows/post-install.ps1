@@ -1,4 +1,4 @@
-\xef\xbb\xbf<#
+<#
 .SYNOPSIS
     Pós-instalação do Windows (winget + Chocolatey + tweaks).
 
@@ -19,7 +19,13 @@
 param(
     [switch]$InstallWsl,
     [switch]$SkipTweaks,
-    [switch]$SkipUpgrade
+    [switch]$SkipUpgrade,
+    [string]$GitUserName = 'tomas-barros1',
+    [string]$GitUserEmail = 'tomasabbarros3@gmail.com',
+    [string]$DotfilesPath = "$env:USERPROFILE\Desktop\dotfiles",
+    [string]$DotfilesRepoUrl = 'https://github.com/tomas-barros1/dotfiles',
+    [string[]]$PowerShellModules = @('PSReadLine', 'PSFzf'),
+    [string]$NeovimConfigPath = "$env:USERPROFILE\Desktop\astro-nvim\.config\nvim"
 )
 
 $logFile = "$env:USERPROFILE\postinstall_log.txt"
@@ -122,6 +128,33 @@ function Ensure-Winget {
     }
 }
 
+function Ensure-Scoop {
+    if (Get-Command scoop -ErrorAction SilentlyContinue) {
+        Log "Scoop já instalado: $(scoop --version)"
+        return
+    }
+
+    Log "Scoop não encontrado. Instalando..."
+
+    try {
+        Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+        Invoke-RestMethod -Uri "https://get.scoop.sh" -UseBasicParsing | Invoke-Expression
+
+        Refresh-Env
+
+        if (Get-Command scoop -ErrorAction SilentlyContinue) {
+            Log "Scoop instalado com sucesso: $(scoop --version)"
+        } else {
+            Log "AVISO: scoop instalado mas não reconhecido nesta sessão."
+            Add-Failure "scoop:indisponivel"
+        }
+    }
+    catch {
+        Log "ERRO ao instalar Scoop: $($_.Exception.Message)"
+        Add-Failure "scoop:instalacao"
+    }
+}
+
 function Ensure-Choco {
     if (Get-Command choco -ErrorAction SilentlyContinue) {
         Log "Chocolatey já instalado: $(choco --version)"
@@ -198,42 +231,6 @@ function Set-SystemTweaks {
     Restore-PhotoViewer
 }
 
-# Starship e zoxide são instalados, mas só funcionam se o $PROFILE os inicializar.
-function Add-ShellProfile {
-    Log "Configurando o profile do PowerShell (starship + zoxide)..."
-
-    $docs = [Environment]::GetFolderPath('MyDocuments')
-    $targets = @(
-        (Join-Path $docs 'PowerShell\Microsoft.PowerShell_profile.ps1'),
-        (Join-Path $docs 'WindowsPowerShell\Microsoft.PowerShell_profile.ps1')
-    )
-    $marker = '# >>> post-install-setup >>>'
-    $block = @'
-# >>> post-install-setup >>>
-if (Get-Command starship -ErrorAction SilentlyContinue) { Invoke-Expression (&starship init powershell) }
-if (Get-Command zoxide -ErrorAction SilentlyContinue) { Invoke-Expression (& { (zoxide init powershell | Out-String) }) }
-# <<< post-install-setup <<<
-'@
-
-    foreach ($target in $targets) {
-        try {
-            $dir = Split-Path $target
-            if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-
-            if ((Test-Path $target) -and (Select-String -Path $target -SimpleMatch $marker -Quiet)) {
-                Log "  profile já configurado: $target"
-                continue
-            }
-            Add-Content -Path $target -Value "`n$block"
-            Log "  profile atualizado: $target"
-        }
-        catch {
-            Log "ERRO ao atualizar $target : $($_.Exception.Message)"
-            Add-Failure "profile:$target"
-        }
-    }
-}
-
 function Install-WslArch {
     Log "Habilitando WSL2..."
     wsl --install --no-distribution
@@ -249,6 +246,184 @@ function Install-WslArch {
         Add-Failure "wsl:archlinux"
     } else {
         Log "Arch WSL pronto. Dentro dele: clone o repositório e rode ./install.sh --profile wsl"
+    }
+}
+
+function Configure-Git {
+    Log "Configurando o Git..."
+
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        Log "AVISO: git não encontrado no PATH. Pulando configuração do Git."
+        Add-Failure "git:nao-encontrado"
+        return
+    }
+
+    try {
+        git config --global core.pager delta
+        git config --global interactive.diffFilter "delta --color-only"
+        git config --global delta.navigate true
+        git config --global delta.dark true
+        git config --global merge.conflictStyle zdiff3
+        git config --global user.name $GitUserName
+        git config --global user.email $GitUserEmail
+
+        Log "Git configurado (usuario: $GitUserName, email: $GitUserEmail)"
+    }
+    catch {
+        Log "ERRO ao configurar Git: $($_.Exception.Message)"
+        Add-Failure "git:config"
+    }
+}
+
+function Configure-Dotfiles {
+    Log "Configurando dotfiles ($DotfilesPath)..."
+
+    if (-not (Test-Path $DotfilesPath)) {
+        if ($DotfilesRepoUrl) {
+            Log "Repositório não encontrado localmente. Clonando de $DotfilesRepoUrl..."
+            try {
+                git clone $DotfilesRepoUrl $DotfilesPath
+                if ($LASTEXITCODE -ne 0) {
+                    Log "FALHOU ao clonar dotfiles: código $LASTEXITCODE"
+                    Add-Failure "dotfiles:clone"
+                    return
+                }
+            }
+            catch {
+                Log "ERRO ao clonar dotfiles: $($_.Exception.Message)"
+                Add-Failure "dotfiles:clone"
+                return
+            }
+        } else {
+            Log "AVISO: diretório de dotfiles não encontrado em $DotfilesPath e nenhuma URL de repo informada. Pulando."
+            Add-Failure "dotfiles:nao-encontrado"
+            return
+        }
+    }
+
+    # --- PowerShell 7 profile ---
+    $psProfileTarget = Join-Path $env:USERPROFILE 'Documents\PowerShell\Microsoft.PowerShell_profile.ps1'
+    $psProfileSource = Get-ChildItem -Path $DotfilesPath -Filter 'Microsoft.PowerShell_profile.ps1' -Recurse | Select-Object -First 1
+
+    if ($psProfileSource) {
+        try {
+            $dir = Split-Path $psProfileTarget
+            if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+            # Faz backup se já existir
+            if (Test-Path $psProfileTarget) {
+                Rename-Item -Path $psProfileTarget -NewName "$psProfileTarget.bak.$(Get-Date -Format 'yyyyMMddHHmmss')" -Force | Out-Null
+            }
+            Copy-Item -Path $psProfileSource.FullName -Destination $psProfileTarget -Force
+            Log "Profile do PowerShell 7 aplicado: $psProfileTarget"
+        }
+        catch {
+            Log "ERRO ao aplicar profile do PowerShell: $($_.Exception.Message)"
+            Add-Failure "dotfiles:ps-profile"
+        }
+    } else {
+        Log "AVISO: Microsoft.PowerShell_profile.ps1 não encontrado nos dotfiles. Pulando PowerShell profile."
+        Add-Failure "dotfiles:ps-profile-nao-encontrado"
+    }
+
+    # --- Windows Terminal settings ---
+    $wtLocalState = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState'
+    $wtSettingsTarget = Join-Path $wtLocalState 'settings.json'
+    $wtSettingsSource = Get-ChildItem -Path $DotfilesPath -Filter 'settings.json' -Recurse | Select-Object -First 1
+
+    if ($wtSettingsSource) {
+        try {
+            if (-not (Test-Path $wtLocalState)) { New-Item -ItemType Directory -Path $wtLocalState -Force | Out-Null }
+            if (Test-Path $wtSettingsTarget) {
+                Rename-Item -Path $wtSettingsTarget -NewName "$wtSettingsTarget.bak.$(Get-Date -Format 'yyyyMMddHHmmss')" -Force | Out-Null
+            }
+            Copy-Item -Path $wtSettingsSource.FullName -Destination $wtSettingsTarget -Force
+            Log "Configuração do Windows Terminal aplicada: $wtSettingsTarget"
+        }
+        catch {
+            Log "ERRO ao aplicar configuração do Windows Terminal: $($_.Exception.Message)"
+            Add-Failure "dotfiles:wt-settings"
+        }
+    } else {
+        Log "AVISO: settings.json do Windows Terminal não encontrado nos dotfiles. Pulando."
+        Add-Failure "dotfiles:wt-settings-nao-encontrado"
+    }
+
+    # --- Outros arquivos comuns (profiles.json, etc.) ---
+    foreach ($file in @('profiles.json', 'defaults.json')) {
+        $src = Get-ChildItem -Path $DotfilesPath -Filter $file -Recurse | Select-Object -First 1
+        if ($src) {
+            $dst = Join-Path $wtLocalState $file
+            try {
+                if (Test-Path $dst) {
+                    Rename-Item -Path $dst -NewName "$dst.bak.$(Get-Date -Format 'yyyyMMddHHmmss')" -Force | Out-Null
+                }
+                Copy-Item -Path $src.FullName -Destination $dst -Force
+                Log "Arquivo do Windows Terminal aplicado: $file"
+            }
+            catch {
+                Log "ERRO ao aplicar $file: $($_.Exception.Message)"
+                Add-Failure "dotfiles:$file"
+            }
+        }
+    }
+}
+
+function Install-PowerShellModule {
+    param([string[]]$Modules)
+
+    if ($Modules.Count -eq 0) {
+        Log "Nenhum módulo do PowerShell informado. Pulando."
+        return
+    }
+
+    Log "Instalando módulos do PowerShell 7..."
+
+    try {
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop | Out-Null
+    }
+    catch {
+        Log "AVISO: não foi possível confiar na PSGallery. Pulando instalação de módulos."
+        Add-Failure "psmodule:gallery"
+        return
+    }
+
+    foreach ($mod in $Modules) {
+        try {
+            Log "  Instalando módulo: $mod"
+            Install-Module -Name $mod -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop | Out-Null
+            Log "  OK: $mod"
+        }
+        catch {
+            Log "  FALHOU ao instalar $mod: $($_.Exception.Message)"
+            Add-Failure "psmodule:$mod"
+        }
+    }
+}
+
+function Configure-Neovim {
+    Log "Configurando o Neovim (astro-nvim)..."
+
+    if (-not (Test-Path $NeovimConfigPath)) {
+        Log "AVISO: caminho do astro-nvim não encontrado em $NeovimConfigPath. Pulando configuração do Neovim."
+        Add-Failure "neovim:nao-encontrado"
+        return
+    }
+
+    $nvimTarget = Join-Path $env:LOCALAPPDATA 'nvim'
+
+    try {
+        if (Test-Path $nvimTarget) {
+            $backup = "$nvimTarget.bak.$(Get-Date -Format 'yyyyMMddHHmmss')"
+            Move-Item -Path $nvimTarget -Destination $backup -Force
+            Log "  Backup do nvim existente: $backup"
+        }
+
+        Copy-Item -Path $NeovimConfigPath -Destination $nvimTarget -Recurse -Force
+        Log "Configuração do Neovim aplicada: $nvimTarget"
+    }
+    catch {
+        Log "ERRO ao configurar Neovim: $($_.Exception.Message)"
+        Add-Failure "neovim:config"
     }
 }
 
@@ -272,9 +447,13 @@ Install-Winget "Microsoft.VisualStudio.Community"
 Install-Winget "Docker.DockerDesktop"
 Install-Winget "Yaak.app"
 Install-Winget "Neovim.Neovim"
-Install-Winget "Python.Python.3.14"
+Install-Winget "OpenJS.NodeJS.LTS"
+Install-Winget "GoLang.Go"
+Install-Winget "Rustlang.Rustup"
+Install-Winget "Python.Python"
 Install-Winget "Python.Launcher"
 Install-Winget "Gyan.FFmpeg"
+Install-Winget "Microsoft.PowerToys"
 
 # ================================
 # TERMINAL / SHELL
@@ -285,6 +464,12 @@ Install-Winget "Starship.Starship"
 Install-Winget "junegunn.fzf"
 Install-Winget "ajeetdsouza.zoxide"
 Install-Winget "sharkdp.bat"
+Install-Winget "dandavison.delta"
+Install-Winget "BurntSushi.ripgrep.MSVC"
+Install-Winget "sharkdp.fd"
+Install-Winget "eza-community.eza"
+Install-Winget "JesseDuffield.lazygit"
+Install-Winget "JesseDuffield.Lazydocker"
 
 # ================================
 # UTIL
@@ -297,6 +482,8 @@ Install-Winget "VideoLAN.VLC"
 Install-Winget "Notepad++.Notepad++"
 Install-Winget "RevoUninstaller.RevoUninstaller"
 Install-Winget "flux.flux"
+Install-Winget "cjpais.Handy"
+Install-Winget "yt-dlp.yt-dlp"
 
 # ================================
 # APPS
@@ -305,8 +492,7 @@ Install-Winget "Spotify.Spotify"
 Install-Winget "Valve.Steam"
 Install-Winget "Guru3D.Afterburner"
 Install-Winget "Guru3D.RTSS"
-Install-Winget "PCSX2Team.PCSX2"
-Install-Winget "Brave.Brave"
+Install-Winget "InputNet.Helium"
 
 # ================================
 # VISUAL C++ REDISTRIBUTABLES (2005 até 2015-2022)
@@ -336,7 +522,11 @@ Install-Choco "nerd-fonts-JetBrainsMono"
 # CONFIGURAÇÃO
 # ================================
 Refresh-Env
-Add-ShellProfile
+Ensure-Scoop
+Configure-Git
+Configure-Dotfiles
+Install-PowerShellModule -Modules $PowerShellModules
+Configure-Neovim
 
 if (-not $SkipTweaks) {
     Set-SystemTweaks
