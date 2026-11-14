@@ -130,7 +130,7 @@ O script para Windows instala automaticamente os gerenciadores **Winget** e **Ch
 
 ### ⚡ Como Executar no Windows (Sem Frescura)
 
-Parâmetros opcionais: `-InstallWsl` (habilita o WSL2 e instala o Arch — depois rode `./install.sh --profile wsl` dentro dele), `-SkipTweaks` (não altera extensões/tema/busca/Photo Viewer) e `-SkipUpgrade` (não roda `winget upgrade --all`). Ao final o script lista os itens que falharam.
+Parâmetros opcionais: `-InstallWsl` (habilita o WSL2 e instala o Arch — depois rode `./install.sh --profile wsl` dentro dele), `-SkipTweaks` (não altera extensões/tema/busca/Photo Viewer), `-SkipUpgrade` (não roda `winget upgrade --all`), `-GitUserName` e `-GitUserEmail` (configuração do Git), `-DotfilesPath` e `-DotfilesRepoUrl` (caminho/URL dos dotfiles), `-PowerShellModules` (módulos do PowerShell 7, ex: `@('PSReadLine','PSFzf')`) e `-NeovimConfigPath` (caminho da config do astro-nvim). Ao final o script lista os itens que falharam.
 
 #### Opção A — Executar direto em uma única linha (Recomendado):
 
@@ -155,12 +155,17 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 
 ### 📦 O que o script do Windows instala?
 
-- **Gerenciadores de Pacotes:** `Winget` e `Chocolatey`.
-- **Desenvolvimento:** Git, Visual Studio Community, Docker Desktop, Neovim, Python 3.14, FFmpeg, Yaak.
-- **Terminal & Shell:** Windows Terminal, PowerShell 7, Starship prompt, fzf, zoxide, bat, Cascadia Code Nerd Font, JetBrains Mono Nerd Font.
-- **Aplicações & Utilitários:** Brave Browser, Spotify, Steam, PCSX2, MSI Afterburner + RTSS, SumatraPDF, 7-Zip, VLC, Notepad++, Paint.NET, qBittorrent, Revo Uninstaller, f.lux.
+- **Gerenciadores de Pacotes:** `Winget`, `Chocolatey` e `Scoop`.
+- **Desenvolvimento:** Git, Visual Studio Community, Docker Desktop, Neovim, Python (versão mais recente), Python Launcher, FFmpeg, Yaak, Go, Rust, Node.js LTS, PowerToys.
+- **Terminal & Shell:** Windows Terminal, PowerShell 7, Starship, fzf, zoxide, bat, delta, ripgrep (rg), fd, eza, lazygit, lazydocker, Cascadia Code Nerd Font, JetBrains Mono Nerd Font.
+- **Módulos do PowerShell 7:** `PSReadLine` e `PSFzf` (instalados da PowerShell Gallery).
+- **Aplicações & Utilitários:** Spotify, Steam, MSI Afterburner + RTSS, Helium, SumatraPDF, 7-Zip, VLC, Notepad++, Paint.NET, qBittorrent, Revo Uninstaller, f.lux, Handy, yt-dlp.
 - **Runtimes & Sistema:** Pacotes redistribuíveis Microsoft Visual C++ (2005, 2008, 2010, 2012, 2013 e 2015-2022, x86/x64).
-- **Ajustes:** profile do PowerShell inicializando **starship** e **zoxide**, extensões e arquivos ocultos visíveis, tema escuro, busca sem sugestões do Bing e restauração do clássico **Windows Photo Viewer**.
+- **Configurações aplicadas:**
+  - **Git:** pager `delta`, `interactive.diffFilter`, `merge.conflictStyle = zdiff3`, seu nome e e-mail.
+  - **Dotfiles:** copia `Microsoft.PowerShell_profile.ps1` e `settings.json` (Windows Terminal) do seu repo (`C:\Users\<usuario>\Desktop\dotfiles` ou clona de `https://github.com/tomas-barros1/dotfiles`).
+  - **Neovim:** copia a pasta do astro-nvim para `%LOCALAPPDATA%\nvim`.
+  - **Sistema:** extensões e arquivos ocultos visíveis, tema escuro, busca sem sugestões do Bing e restauração do clássico **Windows Photo Viewer**.
 
 ---
 
